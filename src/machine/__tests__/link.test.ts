@@ -106,6 +106,15 @@ describe("MachineLink", () => {
     });
   });
 
+  it("asks the cloud with its own user agent, or the one it is given", async () => {
+    await link().send("A");
+    await link({ userAgent: "my-app/1.0" }).send("A");
+
+    expect(
+      mock.credentialRequests.map((each) => each.headers["User-Agent"]),
+    ).toEqual(["dyson-control", "my-app/1.0"]);
+  });
+
   it("asks for new credentials after a failure to get them", async () => {
     const machineLink = link();
     mock.credentialStatusCode = 401;

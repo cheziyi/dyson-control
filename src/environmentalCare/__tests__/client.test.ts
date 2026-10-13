@@ -6,7 +6,7 @@ import {
 } from "../../cloud/__tests__/mocks/broker.js";
 import { ACCOUNT } from "../../cloud/__tests__/mocks/cloud.js";
 import type { DysonMachine } from "../../cloud/models/machine.js";
-import { EnvironmentalCareDysonClient } from "../client.js";
+import { EnvironmentalCareClient } from "../client.js";
 
 vi.mock("mqtt", () => ({ connectAsync: vi.fn() }));
 
@@ -29,21 +29,21 @@ function answer(productState: Record<string, string> = PRODUCT_STATE): void {
   };
 }
 
-function client(machine: DysonMachine = MACHINE): EnvironmentalCareDysonClient {
-  return new EnvironmentalCareDysonClient(machine, { account: ACCOUNT });
+function client(machine: DysonMachine = MACHINE): EnvironmentalCareClient {
+  return new EnvironmentalCareClient(machine, { account: ACCOUNT });
 }
 
 beforeEach(() => {
   answer();
 });
 
-describe("EnvironmentalCareDysonClient", () => {
+describe("EnvironmentalCareClient", () => {
   it("takes an environmental care machine, and a machine without a category", () => {
     expect(() =>
       client({ ...MACHINE, category: "environmentalCare" }),
     ).not.toThrow();
     expect(() => client({ ...MACHINE, category: "robot" })).toThrow(
-      "An EnvironmentalCareDysonClient takes an environmental care machine, not one of category robot",
+      "An EnvironmentalCareClient takes an environmental care machine, not one of category robot",
     );
   });
 
@@ -140,6 +140,19 @@ describe("EnvironmentalCareDysonClient", () => {
     expect(mock.broker.published[1]?.message).toMatchObject({
       msg: "STATE-SET",
       data: { ffoc: "ON" },
+    });
+  });
+
+  it("passes the user agent it is given on to the cloud", async () => {
+    const purifier = new EnvironmentalCareClient(MACHINE, {
+      account: ACCOUNT,
+      userAgent: "my-app/1.0",
+    });
+
+    await purifier.getState();
+
+    expect(mock.credentialRequests[0]?.headers).toMatchObject({
+      "User-Agent": "my-app/1.0",
     });
   });
 

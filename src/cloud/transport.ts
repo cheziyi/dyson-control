@@ -1,9 +1,14 @@
 import { DysonConnectionError, DysonError } from "../error.js";
 import type { DysonAccount } from "./models/account.js";
-import { encodeAccountToken, encodeCloudOrigin } from "./protocol/account.js";
-import { CLOUD_HEADERS } from "./protocol/tables.js";
+import {
+  encodeAccountToken,
+  encodeCloudOrigin,
+  encodeUserAgent,
+} from "./protocol/account.js";
 
 export const DEFAULT_TIMEOUT_IN_MS = 10_000;
+
+export const DEFAULT_USER_AGENT = "dyson-control";
 
 // The codes for a refused, reset or closed connection, as `fetch` reports
 // them on the `cause` of what it throws. Every other failure, such as a
@@ -23,13 +28,6 @@ export interface DysonCloudRequest {
   jsonBody?: unknown;
 }
 
-/** What every call to the cloud takes. */
-export interface DysonCloudOptions {
-  /** How long, in milliseconds, a request waits for the cloud. Defaults to
-   * 10000: see `DysonCloudTransportOptions.timeoutInMs`. */
-  timeoutInMs?: number;
-}
-
 export interface DysonCloudTransportOptions {
   /** The account's country, which picks the cloud: see
    * `DysonRegion.country`. */
@@ -40,6 +38,9 @@ export interface DysonCloudTransportOptions {
   /** How long, in milliseconds, to wait for the whole reply before `send`
    * throws a `DysonError` with status 504. Defaults to 10000. */
   timeoutInMs?: number;
+  /** Sent as the `User-Agent` of every request. Defaults to `dyson-control`.
+   * The cloud answers HTTP 403 to an empty one, and takes any other. */
+  userAgent?: string;
 }
 
 /** The HTTPS requests to the Dyson cloud of one country. It holds no
@@ -71,7 +72,7 @@ export class DysonCloudTransport {
       response = await fetch(url, {
         method: cloudRequest.method,
         headers: {
-          ...CLOUD_HEADERS,
+          ...encodeUserAgent(this.options.userAgent ?? DEFAULT_USER_AGENT),
           ...(this.options.account === undefined
             ? {}
             : encodeAccountToken(this.options.account)),

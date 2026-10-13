@@ -1,7 +1,7 @@
 import { DysonError } from "../../error.js";
 import { type DysonMachine, MACHINE_CATEGORIES } from "../models/machine.js";
 import {
-  CLOUD_CATEGORY_CODES,
+  CLOUD_MACHINE_CATEGORY_CODES,
   CLOUD_REMOTE_BROKER_TYPE_CODES,
 } from "./tables.js";
 
@@ -45,7 +45,7 @@ function parseMachine(entry: unknown): DysonMachine | undefined {
   const optional = {
     mqttRootTopicLevel: text(mqtt.mqttRootTopicLevel),
     category: MACHINE_CATEGORIES.find(
-      (each) => CLOUD_CATEGORY_CODES[each] === fields.category,
+      (each) => CLOUD_MACHINE_CATEGORY_CODES[each] === fields.category,
     ),
     name: text(fields.name),
     variant: text(fields.variant),

@@ -27,16 +27,16 @@ to your code, and the `^` range npm saves by default never crosses one.
 
 ```ts
 import {
-  EnvironmentalCareDysonClient,
+  EnvironmentalCareClient,
   getMachines,
-  logIn,
+  login,
   requestLoginCode,
 } from "dyson-control";
 
 // 1. Log in once. Dyson emails a code to the account's address.
 const region = { country: "GB", culture: "en-GB" };
 const challengeId = await requestLoginCode({ email, ...region });
-const account = await logIn({
+const account = await login({
   email,
   password,
   challengeId,
@@ -53,12 +53,12 @@ if (machine === undefined) {
 }
 
 // 3. Read and control. Nothing is sent until the first call.
-const client = new EnvironmentalCareDysonClient(machine, { account });
+const client = new EnvironmentalCareClient(machine, { account });
 
 const state = await client.getState();
 await client.setState({ fanSpeed: 5, oscillationMode: "on" });
 
-const { temperatureInC, pm25InMicrogramsPerCubicMetre } =
+const { temperatureInC, pm25InUgPerM3 } =
   await client.getSensors();
 
 // 4. Close the connection when you're done with the machine.
@@ -70,7 +70,7 @@ await client.close();
 | Call | Does |
 | --- | --- |
 | `requestLoginCode({ email, country, culture })` | Has the cloud email a code, and resolves with a `challengeId` |
-| `logIn({ email, password, challengeId, otpCode, country, culture })` | Resolves with a `DysonAccount`: `accountId`, `token`, `tokenType`, `country` and `culture` |
+| `login({ email, password, challengeId, otpCode, country, culture })` | Resolves with a `DysonAccount`: `accountId`, `token`, `tokenType`, `country` and `culture` |
 | `getMachines(account)` | Resolves with one `DysonMachine` for each machine of the account that the cloud broker reaches, of every category |
 
 Pass `country` as two capital letters, such as `GB`, and `culture` as a
@@ -84,7 +84,7 @@ whose `httpStatusCode` is 401: log in again.
 ### Machines
 
 Check a machine's `category` before building a client for it:
-`EnvironmentalCareDysonClient` takes an `environmentalCare` machine, and
+`EnvironmentalCareClient` takes an `environmentalCare` machine, and
 throws an `Error` for one of another category. There is no client for the
 other categories yet.
 
@@ -97,18 +97,18 @@ Key a stored machine on `serialNumber`. Write the machine by hand when you
 already know it, and skip `getMachines`:
 
 ```ts
-import { EnvironmentalCareDysonClient, type DysonMachine } from "dyson-control";
+import { EnvironmentalCareClient, type DysonMachine } from "dyson-control";
 
 const machine: DysonMachine = {
   serialNumber: "<serial number>",
   type: "438",
 };
-const client = new EnvironmentalCareDysonClient(machine, { account });
+const client = new EnvironmentalCareClient(machine, { account });
 ```
 
 `type` is the cloud's code for the kind of machine, such as `438`, as
 `getMachines` reports it. It tells the client how the machine holds its
-state, so `EnvironmentalCareDysonClient` throws an `Error` for a type outside
+state, so `EnvironmentalCareClient` throws an `Error` for a type outside
 this table:
 
 | Types | Hold |
@@ -153,8 +153,8 @@ A field that holds a named mode, such as `heatMode`, is that mode and not
 | Field | Holds |
 | --- | --- |
 | `temperatureInC`, `humidityInPercent` | The room's temperature and humidity |
-| `pm25InMicrogramsPerCubicMetre`, `pm10InMicrogramsPerCubicMetre` | Particulates, in μg/m³ |
-| `formaldehydeInMicrogramsPerCubicMetre` | Formaldehyde, in μg/m³ |
+| `pm25InUgPerM3`, `pm10InUgPerM3` | Particulates, in μg/m³ |
+| `formaldehydeInUgPerM3` | Formaldehyde, in μg/m³ |
 | `carbonDioxideInPpm` | Carbon dioxide, in parts per million |
 | `pm25Index`, `pm10Index`, `volatileOrganicCompoundsIndex`, `nitrogenDioxideIndex`, `formaldehydeIndex`, `carbonDioxideIndex` | The machine's own index for each pollutant, which has no unit |
 
@@ -212,12 +212,13 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 
 | `httpStatusCode` | Meaning |
 | --- | --- |
-| 401 | The cloud rejected the account's token, or the broker rejected the credentials the cloud issued or the subscription to the machine's topic |
+| 401 | The cloud rejected the login or the account's token, or the broker rejected the credentials the cloud issued or the subscription to the machine's topic |
 | 501 | The machine is on the RabbitMQ broker, which no client connects to: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
 | 502 | The cloud answered with a reply that does not parse, or the machine with a message that lacks its fields |
 | 503 | The cloud or the broker refused or dropped the connection (a `DysonConnectionError`) |
 | 504 | The cloud, the broker or the machine did not answer in time. A machine that is unplugged or off its Wi-Fi answers nothing |
-| Any other | The cloud's own HTTP status, such as 400 for a wrong password or code |
+| 429 | The cloud was asked for a login code again within seconds of the last one: wait before asking again |
+| Any other | The cloud's own HTTP status |
 
 No call is retried. A client connects again on the call after its connection
 closed, with new credentials:
@@ -227,9 +228,12 @@ Pass `timeoutInMs` to a client, or to an account call, to wait
 other than the default 10000 for each of the cloud, the broker and the
 machine.
 
+Pass `userAgent` the same way to send your own `User-Agent` to the cloud in
+place of `dyson-control`. The cloud refuses an empty one with HTTP 403.
+
 ## Coverage & limitations
 
-- **Environmental care machines only**: `EnvironmentalCareDysonClient`
+- **Environmental care machines only**: `EnvironmentalCareClient`
   controls a machine of the `environmentalCare` category whose type is in
   the table under [Machines](#machines). `getMachines()` lists a robot
   vacuum or a light as well, and nothing controls one yet.

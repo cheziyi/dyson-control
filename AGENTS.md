@@ -110,7 +110,7 @@ from neither. Each folder has the same layers:
 - **A function is its verb plus the bare noun**: `getMachines`,
   `parseMachines`. Its argument and return types already say `Dyson`.
 - **An export for one kind of machine puts that kind in front**:
-  `EnvironmentalCareDysonClient`, `EnvironmentalCareState`. A second kind of
+  `EnvironmentalCareClient`, `EnvironmentalCareState`. A second kind of
   machine then has a state of its own to name.
 - **A `protocol/` export names what it speaks to**:
   `parseEnvironmentalCareState`, `ENVIRONMENTAL_CARE_FIELDS`,
@@ -131,8 +131,10 @@ from neither. Each folder has the same layers:
 - **An options type is its function's or class's name plus `Options`**:
   `MachineLinkOptions`.
 - **A name carrying a unit spells it after `In`**. Milliseconds abbreviates to
-  `Ms` and degrees Celsius to `C`: `timeoutInMs`, `DEFAULT_TIMEOUT_IN_MS`,
-  `targetTemperatureInC`, `manualHumidificationTargetInPercent`.
+  `Ms`, degrees Celsius to `C`, parts per million to `Ppm` and micrograms per
+  cubic metre to `UgPerM3`: `timeoutInMs`, `DEFAULT_TIMEOUT_IN_MS`,
+  `targetTemperatureInC`, `carbonDioxideInPpm`, `pm25InUgPerM3`,
+  `manualHumidificationTargetInPercent`.
 
 ## Version the package with semver
 

@@ -65,7 +65,7 @@ export interface EnvironmentalCareState {
 }
 
 /** A partial `EnvironmentalCareState`, as
- * `EnvironmentalCareDysonClient.setState` takes it: set only the fields to
+ * `EnvironmentalCareClient.setState` takes it: set only the fields to
  * change. The client sends each field as given, whether or not the machine
  * has the feature. */
 export type EnvironmentalCareControl = {
@@ -82,13 +82,13 @@ export type EnvironmentalCareControl = {
 export interface EnvironmentalCareSensors {
   temperatureInC: number | null;
   humidityInPercent: number | null;
-  pm25InMicrogramsPerCubicMetre: number | null;
+  pm25InUgPerM3: number | null;
   pm25Index: number | null;
-  pm10InMicrogramsPerCubicMetre: number | null;
+  pm10InUgPerM3: number | null;
   pm10Index: number | null;
   volatileOrganicCompoundsIndex: number | null;
   nitrogenDioxideIndex: number | null;
-  formaldehydeInMicrogramsPerCubicMetre: number | null;
+  formaldehydeInUgPerM3: number | null;
   formaldehydeIndex: number | null;
   carbonDioxideInPpm: number | null;
   carbonDioxideIndex: number | null;

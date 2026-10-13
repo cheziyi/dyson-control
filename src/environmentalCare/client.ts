@@ -26,37 +26,37 @@ import {
   type EnvironmentalCareType,
 } from "./protocol/type.js";
 
-export interface EnvironmentalCareDysonClientOptions {
-  /** The account the machine is registered to, as `logIn` resolved with
+export interface EnvironmentalCareClientOptions {
+  /** The account the machine is registered to, as `login` resolved with
    * it. */
   account: DysonAccount;
   /** How long, in milliseconds, a call waits for each of the cloud, the
    * broker and the machine's answer. Defaults to 10000: see
    * `MachineLinkOptions.timeoutInMs`. */
   timeoutInMs?: number;
+  /** Sent as the `User-Agent` of each request to the cloud. Defaults to
+   * `dyson-control`: see `DysonCloudTransportOptions.userAgent`. */
+  userAgent?: string;
 }
 
 /** A purifier, fan, heater or humidifier: a machine of the
  * `environmentalCare` category. It connects on the first call, and every
  * method rejects with a `DysonError` when its request fails. Call `close`
  * when done with the machine. */
-export class EnvironmentalCareDysonClient {
+export class EnvironmentalCareClient {
   private readonly link: MachineLink;
   private readonly type: EnvironmentalCareType;
 
   /** It sends nothing. It throws an `Error` for a machine of another
    * category, and for one whose `type` is no known environmental care
    * machine's: the type says how the machine holds its state. */
-  constructor(
-    machine: DysonMachine,
-    options: EnvironmentalCareDysonClientOptions,
-  ) {
+  constructor(machine: DysonMachine, options: EnvironmentalCareClientOptions) {
     if (
       machine.category !== undefined &&
       machine.category !== "environmentalCare"
     ) {
       throw new Error(
-        `An EnvironmentalCareDysonClient takes an environmental care machine, not one of category ${machine.category}`,
+        `An EnvironmentalCareClient takes an environmental care machine, not one of category ${machine.category}`,
       );
     }
     const type = decodeEnvironmentalCareType(machine.type);

@@ -13,21 +13,15 @@ export const CLOUD_CHINA_COUNTRY = "CN";
 
 export const CLOUD_ROUTES = {
   loginCode: "/v3/userregistration/email/auth",
-  logIn: "/v3/userregistration/email/verify",
+  login: "/v3/userregistration/email/verify",
   manifest: "/v3/manifest",
   iotCredentials: "/v2/authorize/iot-credentials",
 } as const;
 
-/** Sent on every request. Whether the cloud refuses another `X-App-Version`
- * or `User-Agent` is not known: see UNSUPPORTED.md. */
-export const CLOUD_HEADERS = {
-  "X-Platform": "android",
-  "X-App-Version": "6.4.26381",
-  "User-Agent": "okhttp/4.12.0",
-} as const;
-
 /** `category` in the manifest. */
-export const CLOUD_CATEGORY_CODES: Readonly<Record<MachineCategory, string>> = {
+export const CLOUD_MACHINE_CATEGORY_CODES: Readonly<
+  Record<MachineCategory, string>
+> = {
   environmentalCare: "ec",
   robot: "robot",
   lighting: "light",

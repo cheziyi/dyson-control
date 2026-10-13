@@ -10,7 +10,6 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | The password the RabbitMQ broker takes. The cloud answers the broker's host and port at `/v1/messageprocessor/devices/{serial}/connectionstatus`, and the broker takes the account's id as its username | No client connects to a machine whose `remoteBrokerType` is `rabbitMq`: it rejects with status 501 |
 | How long the cloud accepts an account's token, and whether it can be renewed without a new login code | A caller logs in again when calls reject with status 401 |
 | How long the broker accepts a set of credentials | A `MachineLink` asks for new ones for every connection: [DESIGN.md](DESIGN.md#credentials-for-one-connection) |
-| Whether the cloud refuses a `User-Agent` or an `X-App-Version` other than the ones the package sends | The package sends `okhttp/4.12.0` and `6.4.26381` on every request |
 
 ## Names
 

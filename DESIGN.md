@@ -25,7 +25,7 @@ A caller passes the account in, and nothing is searched for on the network:
 `MachineLink` holds what every machine on the broker shares: the connection,
 the `command` and `status/current` topics, the envelope of a command (`msg`,
 `time` and `mode-reason`), and waiting for the message that answers one. A
-client for one kind of machine, such as `EnvironmentalCareDysonClient`, sends
+client for one kind of machine, such as `EnvironmentalCareClient`, sends
 its commands over a link and reads the fields of its own messages.
 
 Not built: one client class for every machine.
@@ -129,11 +129,26 @@ Rejected: the package's own names, with a boolean for each mode: `power`,
 A field that is `ON` or `OFF` alone stays a boolean: `fanPower`, `autoMode`,
 `nightMode`, `continuousMonitoring` and `autoHumidification`.
 
+## Headers
+
+The package sends one header of its own on every request to the cloud, a
+`User-Agent`: `dyson-control`, or the `userAgent` a caller passes. The cloud
+answers HTTP 403, with an HTML page in place of JSON, to a request that has
+no `User-Agent` or an empty one, and takes any other value.
+
+Rejected: `X-Platform: android`, `X-App-Version` with the version of an app
+release, and that release's `User-Agent`.
+
+- The cloud answers all four requests the same without the first two, and
+  with any `User-Agent`.
+- A version written into the package says nothing true of the package, and
+  goes stale with every release of the app.
+
 ## No simulator
 
 The package ships no simulated cloud or machine. A caller tests against its
 own account and machine, or puts a stub in place of
-`EnvironmentalCareDysonClient`.
+`EnvironmentalCareClient`.
 
 Not built: a simulator of the cloud and a machine, for a caller's tests.
 

@@ -9,7 +9,7 @@ export interface DysonRegion {
   culture: string;
 }
 
-/** A logged-in Dyson account, as `logIn` resolves with it. Store it and pass
+/** A logged-in Dyson account, as `login` resolves with it. Store it and pass
  * it to `getMachines` and to a client: it holds no password. */
 export interface DysonAccount extends DysonRegion {
   /** The cloud's own identifier of the account. */

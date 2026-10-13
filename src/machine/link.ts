@@ -14,12 +14,15 @@ import {
 } from "./protocol/message.js";
 
 export interface MachineLinkOptions {
-  /** The account the machine is registered to, as `logIn` resolved with
+  /** The account the machine is registered to, as `login` resolved with
    * it. */
   account: DysonAccount;
   /** How long, in milliseconds, a call waits for each of the cloud, the
    * broker and the machine's answer. Defaults to 10000. */
   timeoutInMs?: number;
+  /** Sent as the `User-Agent` of each request to the cloud. Defaults to
+   * `dyson-control`: see `DysonCloudTransportOptions.userAgent`. */
+  userAgent?: string;
 }
 
 interface Waiter {
@@ -52,6 +55,7 @@ export class MachineLink {
       country: options.account.country,
       account: options.account,
       timeoutInMs: this.timeoutInMs,
+      userAgent: options.userAgent,
     });
   }
 
