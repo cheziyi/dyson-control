@@ -1,9 +1,8 @@
 # dyson-control
 
 A TypeScript and Node.js client for controlling Dyson environmental care
-machines: purifiers, fans, heaters and humidifiers. It reaches a machine the
-way the **MyDyson** app does, through the Dyson cloud with your Dyson
-account, so it works with the machines that app controls, from any network.
+machines: purifiers, fans, heaters and humidifiers. It reaches a machine
+through the Dyson cloud with your Dyson account, from any network.
 
 ## Installation
 
