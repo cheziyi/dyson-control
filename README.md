@@ -1,5 +1,13 @@
 # dyson-control
 
+[![npm version](https://img.shields.io/npm/v/dyson-control)](https://www.npmjs.com/package/dyson-control)
+[![npm downloads](https://img.shields.io/npm/dm/dyson-control)](https://www.npmjs.com/package/dyson-control)
+[![CI](https://github.com/cheziyi/dyson-control/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cheziyi/dyson-control/actions/workflows/ci.yml?query=branch%3Amain)
+[![Node version](https://img.shields.io/node/v/dyson-control)](package.json)
+[![Types](https://img.shields.io/npm/types/dyson-control)](package.json)
+[![License](https://img.shields.io/npm/l/dyson-control)](LICENSE)
+[![Checked with Biome](https://img.shields.io/badge/Checked_with-Biome-60a5fa?style=flat&logo=biome)](https://biomejs.dev)
+
 A TypeScript and Node.js client for controlling Dyson environmental care
 machines: purifiers, fans, heaters and humidifiers. It reaches a machine
 through the Dyson cloud with your Dyson account, from any network.
@@ -11,6 +19,9 @@ npm install dyson-control
 ```
 
 It needs Node 22 or later, and its types are included.
+
+Before `1.0.0`, only a minor release (`0.1.x` to `0.2.0`) can require changes
+to your code, and the `^` range npm saves by default never crosses one.
 
 ## Usage
 
@@ -230,6 +241,9 @@ machine.
 - **Machines on the RabbitMQ broker** are listed by `getMachines()` with
   `remoteBrokerType: "rabbitMq"`, and their client rejects with status 501.
 
+This package is still young, so expect some rough edges. If something doesn't
+work with your machine, please
+[open an issue](https://github.com/cheziyi/dyson-control/issues).
 [UNSUPPORTED.md](UNSUPPORTED.md) lists what is not known about the cloud and
 a machine, and so what the package cannot do or read with certainty.
 
