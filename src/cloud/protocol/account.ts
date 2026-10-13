@@ -2,8 +2,9 @@ import { DysonError } from "../../error.js";
 import type { DysonAccount, DysonRegion } from "../models/account.js";
 import { CLOUD_CHINA_COUNTRY, CLOUD_ORIGINS } from "./tables.js";
 
-/** The cloud an account's requests go to. */
-export function encodeCloudOrigin(country: string): string {
+/** The cloud an account's requests go to, or the global one for no
+ * country. */
+export function encodeCloudOrigin(country?: string): string {
   return country === CLOUD_CHINA_COUNTRY
     ? CLOUD_ORIGINS.china
     : CLOUD_ORIGINS.global;
@@ -55,7 +56,7 @@ export function buildLoginRequest(credentials: LoginCredentials): unknown {
 
 export function parseLoginReply(
   text: string,
-  region: DysonRegion,
+  region: Required<DysonRegion>,
 ): DysonAccount {
   const { account, token, tokenType } = parseCloudReply(text);
   if (

@@ -9,6 +9,21 @@ import {
 import { CLOUD_ROUTES } from "./protocol/tables.js";
 import { DysonCloudTransport } from "./transport.js";
 
+/** The global cloud logs an account in under a country other than its own,
+ * so only an account in `CN` has one to pick. */
+export const DEFAULT_COUNTRY = "US";
+
+/** The manifest answers the same for any culture, so few callers have one
+ * to pick. */
+export const DEFAULT_CULTURE = "en-US";
+
+function withDefaults(region: DysonRegion): Required<DysonRegion> {
+  return {
+    country: region.country ?? DEFAULT_COUNTRY,
+    culture: region.culture ?? DEFAULT_CULTURE,
+  };
+}
+
 export interface RequestLoginCodeOptions extends DysonRegion {
   email: string;
   /** How long, in milliseconds, the request waits for the cloud. Defaults to
@@ -29,7 +44,7 @@ export async function requestLoginCode(
     await new DysonCloudTransport(options).send({
       method: "POST",
       path: CLOUD_ROUTES.loginCode,
-      query: { country: options.country, culture: options.culture },
+      query: withDefaults(options),
       jsonBody: buildLoginCodeRequest(options.email),
     }),
   );
@@ -49,13 +64,14 @@ export interface LoginOptions extends DysonRegion, LoginCredentials {
  * `requestLoginCode` was given. It rejects with a `DysonError` when the
  * request fails, as it does for a wrong password or code. */
 export async function login(options: LoginOptions): Promise<DysonAccount> {
+  const region = withDefaults(options);
   return parseLoginReply(
     await new DysonCloudTransport(options).send({
       method: "POST",
       path: CLOUD_ROUTES.login,
-      query: { country: options.country },
+      query: { country: region.country },
       jsonBody: buildLoginRequest(options),
     }),
-    options,
+    region,
   );
 }

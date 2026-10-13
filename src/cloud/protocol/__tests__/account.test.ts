@@ -14,9 +14,10 @@ import {
 const REGION = { country: "GB", culture: "en-GB" };
 
 describe("encodeCloudOrigin", () => {
-  it("sends CN to the cloud for China and any other country to the global one", () => {
+  it("sends CN to the cloud for China, and any other country or none to the global one", () => {
     expect(encodeCloudOrigin("CN")).toBe("https://appapi.cp.dyson.cn");
     expect(encodeCloudOrigin("GB")).toBe("https://appapi.cp.dyson.com");
+    expect(encodeCloudOrigin()).toBe("https://appapi.cp.dyson.com");
   });
 });
 

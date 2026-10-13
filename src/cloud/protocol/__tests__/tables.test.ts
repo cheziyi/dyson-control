@@ -14,6 +14,7 @@ describe("the cloud tables", () => {
         login: "/v3/userregistration/email/verify",
         manifest: "/v3/manifest",
         iotCredentials: "/v2/authorize/iot-credentials",
+        supportedMarket: "/v1/supportedmarket",
       },
       CLOUD_MACHINE_CATEGORY_CODES: {
         environmentalCare: "ec",
