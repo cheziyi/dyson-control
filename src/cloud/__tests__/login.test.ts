@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DysonError } from "../../error.js";
-import { logIn, requestLoginCode } from "../account.js";
+import { login, requestLoginCode } from "../login.js";
 import { ACCOUNT, json, useMockCloud } from "./mocks/cloud.js";
 
 const cloud = useMockCloud();
@@ -22,15 +22,28 @@ describe("requestLoginCode", () => {
         method: "POST",
         url: "https://appapi.cp.dyson.com/v3/userregistration/email/auth?country=GB&culture=en-GB",
         headers: {
-          "X-Platform": "android",
-          "X-App-Version": "6.4.26381",
-          "User-Agent": "okhttp/4.12.0",
+          "User-Agent": "dyson-control",
           "Content-Type": "application/json",
         },
         body: { email: "me@example.com" },
       },
     ]);
     expect(cloud.requests[0]?.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("sends the user agent it is given in place of its own", async () => {
+    cloud.reply = () => json({ challengeId: "c-1" });
+
+    await requestLoginCode({
+      email: "me@example.com",
+      country: "GB",
+      culture: "en-GB",
+      userAgent: "my-app/1.0",
+    });
+
+    expect(cloud.requests[0]?.headers).toMatchObject({
+      "User-Agent": "my-app/1.0",
+    });
   });
 
   it("asks the cloud for China for an account there", async () => {
@@ -48,7 +61,7 @@ describe("requestLoginCode", () => {
   });
 });
 
-describe("logIn", () => {
+describe("login", () => {
   const options = {
     email: "me@example.com",
     password: "secret",
@@ -62,7 +75,7 @@ describe("logIn", () => {
     cloud.reply = () =>
       json({ account: "a-1", token: "abc", tokenType: "Bearer" });
 
-    await expect(logIn(options)).resolves.toEqual(ACCOUNT);
+    await expect(login(options)).resolves.toEqual(ACCOUNT);
 
     expect(cloud.requests).toMatchObject([
       {
@@ -78,13 +91,26 @@ describe("logIn", () => {
     ]);
   });
 
-  it("rejects with the cloud's status for a wrong password or code", async () => {
-    cloud.reply = () => json({ Message: "Unable to authenticate user." }, 400);
+  it("sends the user agent it is given", async () => {
+    cloud.reply = () =>
+      json({ account: "a-1", token: "abc", tokenType: "Bearer" });
 
-    await expect(logIn(options)).rejects.toEqual(
+    await login({ ...options, userAgent: "my-app/1.0" });
+
+    expect(cloud.requests[0]?.headers).toMatchObject({
+      "User-Agent": "my-app/1.0",
+    });
+    // The user agent is no field of the login.
+    expect(cloud.requests[0]?.body).not.toHaveProperty("userAgent");
+  });
+
+  it("rejects with the cloud's status for a login it refuses", async () => {
+    cloud.reply = () => json({ Message: "Unable to authenticate user." }, 401);
+
+    await expect(login(options)).rejects.toEqual(
       new DysonError(
         "Dyson request to /v3/userregistration/email/verify failed",
-        400,
+        401,
       ),
     );
   });

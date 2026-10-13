@@ -9,6 +9,12 @@ export function encodeCloudOrigin(country: string): string {
     : CLOUD_ORIGINS.global;
 }
 
+/** The header every request carries. The cloud answers HTTP 403 to a request
+ * without one, or with an empty one, and takes any other value. */
+export function encodeUserAgent(userAgent: string): Record<string, string> {
+  return { "User-Agent": userAgent };
+}
+
 /** The header that carries an account's token. */
 export function encodeAccountToken(
   account: Pick<DysonAccount, "token" | "tokenType">,
@@ -29,7 +35,7 @@ export function parseLoginCodeReply(text: string): string {
   return challengeId;
 }
 
-export interface LogInCredentials {
+export interface LoginCredentials {
   email: string;
   password: string;
   /** What `parseLoginCodeReply` returned for the code. */
@@ -38,7 +44,7 @@ export interface LogInCredentials {
   otpCode: string;
 }
 
-export function buildLogInRequest(credentials: LogInCredentials): unknown {
+export function buildLoginRequest(credentials: LoginCredentials): unknown {
   return {
     email: credentials.email,
     password: credentials.password,
@@ -47,7 +53,7 @@ export function buildLogInRequest(credentials: LogInCredentials): unknown {
   };
 }
 
-export function parseLogInReply(
+export function parseLoginReply(
   text: string,
   region: DysonRegion,
 ): DysonAccount {

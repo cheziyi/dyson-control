@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DysonError } from "../../../error.js";
 import {
-  buildLogInRequest,
   buildLoginCodeRequest,
+  buildLoginRequest,
   encodeAccountToken,
   encodeCloudOrigin,
+  encodeUserAgent,
   parseCloudReply,
-  parseLogInReply,
   parseLoginCodeReply,
+  parseLoginReply,
 } from "../account.js";
 
 const REGION = { country: "GB", culture: "en-GB" };
@@ -16,6 +17,14 @@ describe("encodeCloudOrigin", () => {
   it("sends CN to the cloud for China and any other country to the global one", () => {
     expect(encodeCloudOrigin("CN")).toBe("https://appapi.cp.dyson.cn");
     expect(encodeCloudOrigin("GB")).toBe("https://appapi.cp.dyson.com");
+  });
+});
+
+describe("encodeUserAgent", () => {
+  it("writes the value as the User-Agent", () => {
+    expect(encodeUserAgent("my-app/1.0")).toEqual({
+      "User-Agent": "my-app/1.0",
+    });
   });
 });
 
@@ -48,7 +57,7 @@ describe("the login code", () => {
 describe("the login", () => {
   it("sends the password with the challengeId and the code", () => {
     expect(
-      buildLogInRequest({
+      buildLoginRequest({
         email: "me@example.com",
         password: "secret",
         challengeId: "c-1",
@@ -66,7 +75,7 @@ describe("the login", () => {
 
   it("is answered with the account", () => {
     expect(
-      parseLogInReply(
+      parseLoginReply(
         '{"account":"a-1","token":"abc","tokenType":"Bearer"}',
         REGION,
       ),
@@ -80,7 +89,7 @@ describe("the login", () => {
   });
 
   it("throws status 502 for a reply without a token", () => {
-    expect(() => parseLogInReply('{"account":"a-1"}', REGION)).toThrow(
+    expect(() => parseLoginReply('{"account":"a-1"}', REGION)).toThrow(
       new DysonError("The Dyson cloud sent no token", 502),
     );
   });

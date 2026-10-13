@@ -187,19 +187,15 @@ export function parseEnvironmentalCareSensors(
   return {
     temperatureInC: decodeTemperature(values[fields.temperature], type),
     humidityInPercent: decodeNumber(values[fields.humidity]),
-    pm25InMicrogramsPerCubicMetre: decodeNumber(
-      values[fields.highResolutionPm25],
-    ),
+    pm25InUgPerM3: decodeNumber(values[fields.highResolutionPm25]),
     pm25Index: decodeTenths(values[fields.pm25]),
-    pm10InMicrogramsPerCubicMetre: decodeNumber(
-      values[fields.highResolutionPm10],
-    ),
+    pm10InUgPerM3: decodeNumber(values[fields.highResolutionPm10]),
     pm10Index: decodeTenths(values[fields.pm10]),
     volatileOrganicCompoundsIndex: decodeTenths(
       values[fields.generation2VolatileOrganicCompounds],
     ),
     nitrogenDioxideIndex: decodeTenths(values[fields.nitrogenDioxide]),
-    formaldehydeInMicrogramsPerCubicMetre: decodeNumber(
+    formaldehydeInUgPerM3: decodeNumber(
       values[fields.highResolutionFormaldehyde],
     ),
     formaldehydeIndex: decodeTenths(values[fields.formaldehyde]),

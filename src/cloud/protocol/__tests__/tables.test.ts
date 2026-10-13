@@ -11,16 +11,11 @@ describe("the cloud tables", () => {
       CLOUD_CHINA_COUNTRY: "CN",
       CLOUD_ROUTES: {
         loginCode: "/v3/userregistration/email/auth",
-        logIn: "/v3/userregistration/email/verify",
+        login: "/v3/userregistration/email/verify",
         manifest: "/v3/manifest",
         iotCredentials: "/v2/authorize/iot-credentials",
       },
-      CLOUD_HEADERS: {
-        "X-Platform": "android",
-        "X-App-Version": "6.4.26381",
-        "User-Agent": "okhttp/4.12.0",
-      },
-      CLOUD_CATEGORY_CODES: {
+      CLOUD_MACHINE_CATEGORY_CODES: {
         environmentalCare: "ec",
         robot: "robot",
         lighting: "light",

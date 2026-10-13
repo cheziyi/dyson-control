@@ -47,4 +47,16 @@ describe("getMachines", () => {
       },
     ]);
   });
+
+  it("sends its own user agent, or the one it is given", async () => {
+    cloud.reply = () => json([]);
+
+    await getMachines(ACCOUNT);
+    await getMachines(ACCOUNT, { userAgent: "my-app/1.0" });
+
+    expect(cloud.requests.map((each) => each.headers["User-Agent"])).toEqual([
+      "dyson-control",
+      "my-app/1.0",
+    ]);
+  });
 });

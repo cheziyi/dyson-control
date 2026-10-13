@@ -1,8 +1,17 @@
 import type { DysonAccount } from "./models/account.js";
 import type { DysonMachine } from "./models/machine.js";
-import { parseMachines } from "./protocol/machine.js";
+import { parseMachines } from "./protocol/machines.js";
 import { CLOUD_ROUTES } from "./protocol/tables.js";
-import { type DysonCloudOptions, DysonCloudTransport } from "./transport.js";
+import { DysonCloudTransport } from "./transport.js";
+
+export interface GetMachinesOptions {
+  /** How long, in milliseconds, the request waits for the cloud. Defaults to
+   * 10000: see `DysonCloudTransportOptions.timeoutInMs`. */
+  timeoutInMs?: number;
+  /** Sent as the `User-Agent` of each request. Defaults to `dyson-control`:
+   * see `DysonCloudTransportOptions.userAgent`. */
+  userAgent?: string;
+}
 
 /** The account's machines that the broker reaches, of every category:
  * check `category` before building a client for one. It rejects with a
@@ -10,13 +19,14 @@ import { type DysonCloudOptions, DysonCloudTransport } from "./transport.js";
  * no longer accepts. */
 export async function getMachines(
   account: DysonAccount,
-  options: DysonCloudOptions = {},
+  options: GetMachinesOptions = {},
 ): Promise<DysonMachine[]> {
   return parseMachines(
     await new DysonCloudTransport({
       country: account.country,
       account,
       timeoutInMs: options.timeoutInMs,
+      userAgent: options.userAgent,
     }).send({
       method: "GET",
       path: CLOUD_ROUTES.manifest,

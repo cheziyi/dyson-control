@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMachines } from "../machine.js";
+import { parseMachines } from "../machines.js";
 
 const PURIFIER = {
   serialNumber: "A1B-EU-ABC1234D",
