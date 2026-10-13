@@ -16,6 +16,7 @@ export const CLOUD_ROUTES = {
   login: "/v3/userregistration/email/verify",
   manifest: "/v3/manifest",
   iotCredentials: "/v2/authorize/iot-credentials",
+  supportedMarket: "/v1/supportedmarket",
 } as const;
 
 /** `category` in the manifest. */

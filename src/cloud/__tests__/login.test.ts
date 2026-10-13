@@ -46,6 +46,16 @@ describe("requestLoginCode", () => {
     });
   });
 
+  it("sends the country US and the culture en-US when it is given neither", async () => {
+    cloud.reply = () => json({ challengeId: "c-1" });
+
+    await requestLoginCode({ email: "me@example.com" });
+
+    expect(cloud.requests[0]?.url).toBe(
+      "https://appapi.cp.dyson.com/v3/userregistration/email/auth?country=US&culture=en-US",
+    );
+  });
+
   it("asks the cloud for China for an account there", async () => {
     cloud.reply = () => json({ challengeId: "c-2" });
 
@@ -89,6 +99,22 @@ describe("login", () => {
         },
       },
     ]);
+  });
+
+  it("sends the country US, and resolves with it and the culture en-US, when it is given neither", async () => {
+    cloud.reply = () =>
+      json({ account: "a-1", token: "abc", tokenType: "Bearer" });
+    const { country: _country, culture: _culture, ...credentials } = options;
+
+    await expect(login(credentials)).resolves.toEqual({
+      ...ACCOUNT,
+      country: "US",
+      culture: "en-US",
+    });
+
+    expect(cloud.requests[0]?.url).toBe(
+      "https://appapi.cp.dyson.com/v3/userregistration/email/verify?country=US",
+    );
   });
 
   it("sends the user agent it is given", async () => {

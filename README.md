@@ -34,14 +34,12 @@ import {
 } from "dyson-control";
 
 // 1. Log in once. Dyson emails a code to the account's address.
-const region = { country: "GB", culture: "en-GB" };
-const challengeId = await requestLoginCode({ email, ...region });
+const challengeId = await requestLoginCode({ email });
 const account = await login({
   email,
   password,
   challengeId,
   otpCode: "<the code from the email>",
-  ...region,
 });
 saveToConfig(account); // it holds a token and no password
 
@@ -69,13 +67,17 @@ await client.close();
 
 | Call | Does |
 | --- | --- |
+| `getCountries()` | Resolves with the countries the cloud registers accounts in, such as `["GB", "US"]`, and takes no account |
 | `requestLoginCode({ email, country, culture })` | Has the cloud email a code, and resolves with a `challengeId` |
 | `login({ email, password, challengeId, otpCode, country, culture })` | Resolves with a `DysonAccount`: `accountId`, `token`, `tokenType`, `country` and `culture` |
 | `getMachines(account)` | Resolves with one `DysonMachine` for each machine of the account that the cloud broker reaches, of every category |
 
-Pass `country` as two capital letters, such as `GB`, and `culture` as a
-language and a country, such as `en-GB`. An account in `CN` goes to the cloud
-for mainland China, and any other to the global one.
+Pass `country: "CN"` to both login calls for an account in mainland China:
+it goes to a cloud of its own. Every other account goes to the global cloud,
+which logs it in under any country, so `country` defaults to `US`. It is two
+capital letters, such as `GB`: one of those `getCountries()` resolves with.
+`culture` is a language and a country, such as `en-GB`, and defaults to
+`en-US`.
 
 Store the account and reuse it: every login takes a new emailed code.
 When the cloud stops accepting the token, calls reject with a `DysonError`

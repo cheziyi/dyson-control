@@ -30,8 +30,8 @@ export interface DysonCloudRequest {
 
 export interface DysonCloudTransportOptions {
   /** The account's country, which picks the cloud: see
-   * `DysonRegion.country`. */
-  country: string;
+   * `DysonRegion.country`. Defaults to none, which picks the global cloud. */
+  country?: string;
   /** Sends the account's token on every request. Left out for the two login
    * requests, which take none. */
   account?: Pick<DysonAccount, "token" | "tokenType">;
