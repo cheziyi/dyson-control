@@ -1,0 +1,17 @@
+# dependencies
+node_modules
+
+# misc
+.DS_Store
+
+# built files
+dist
+
+# coverage
+coverage
+
+# reference files
+reference
+
+# disposable scripts, and the account they cache
+scratch

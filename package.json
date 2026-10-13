@@ -1,0 +1,65 @@
+{
+  "name": "dyson-control",
+  "version": "0.0.0",
+  "description": "Unofficial Node.js and TypeScript client for controlling Dyson air purifiers, fans, heaters and humidifiers through the Dyson cloud, as the MyDyson app does.",
+  "keywords": [
+    "dyson",
+    "mydyson",
+    "dyson-link",
+    "dyson-api",
+    "air-purifier",
+    "purifier",
+    "fan",
+    "heater",
+    "humidifier",
+    "pure-cool",
+    "hot-cool",
+    "hvac",
+    "mqtt",
+    "home-automation",
+    "smart-home",
+    "nodejs",
+    "typescript"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/cheziyi/dyson-control#readme",
+  "bugs": "https://github.com/cheziyi/dyson-control/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cheziyi/dyson-control.git"
+  },
+  "type": "module",
+  "files": [
+    "dist",
+    "src",
+    "!src/**/__tests__",
+    "DESIGN.md",
+    "UNSUPPORTED.md"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc",
+    "test": "pnpm typecheck && vitest run",
+    "check": "biome check",
+    "fix": "biome check --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@tsconfig/node22": "^22.0.6",
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "5.0.3",
+    "lefthook": "^2.2.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "packageManager": "pnpm@11.5.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "mqtt": "^5.16.0"
+  }
+}
