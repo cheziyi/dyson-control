@@ -64,6 +64,7 @@ export const ENVIRONMENTAL_CARE_COMMANDS = {
 /** `msg` of a message a machine sends. */
 export const ENVIRONMENTAL_CARE_MESSAGES = {
   currentState: "CURRENT-STATE",
+  stateChange: "STATE-CHANGE",
   environmentalCurrentSensorData: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
 } as const;
 

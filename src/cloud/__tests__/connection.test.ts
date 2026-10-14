@@ -104,7 +104,19 @@ describe("DysonConnection", () => {
     const { connection, onClose } = open();
 
     await expect(connection).rejects.toMatchObject({ httpStatusCode: 401 });
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(mock.broker.connected).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("rejects with a DysonConnectionError for a connection that closes as it opens", async () => {
+    mock.broker.subscribeAsync = async () => {
+      mock.broker.drop();
+      return [{ qos: 1 }];
+    };
+    const { connection, onClose } = open();
+
+    await expect(connection).rejects.toBeInstanceOf(DysonConnectionError);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("rejects with a DysonConnectionError for any other failure to connect", async () => {

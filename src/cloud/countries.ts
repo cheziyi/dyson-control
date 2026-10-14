@@ -1,6 +1,10 @@
 import { parseCountries } from "./protocol/countries.js";
 import { CLOUD_ROUTES } from "./protocol/tables.js";
-import { DysonCloudTransport } from "./transport.js";
+import {
+  DysonCloudTransport,
+  type DysonRetryOptions,
+  withRetry,
+} from "./transport.js";
 
 export interface GetCountriesOptions {
   /** How long, in milliseconds, the request waits for the cloud. Defaults to
@@ -9,6 +13,9 @@ export interface GetCountriesOptions {
   /** Sent as the `User-Agent` of each request. Defaults to `dyson-control`:
    * see `DysonCloudTransportOptions.userAgent`. */
   userAgent?: string;
+  /** The waits between retries of a refused or dropped connection. Defaults
+   * to 0, 50, 100, 200 and 400 ms: see `DysonRetryOptions.delaysInMs`. */
+  retry?: DysonRetryOptions;
 }
 
 /** The countries the cloud registers accounts in, each as two capital
@@ -17,10 +24,12 @@ export interface GetCountriesOptions {
 export async function getCountries(
   options: GetCountriesOptions = {},
 ): Promise<string[]> {
+  const transport = new DysonCloudTransport(options);
   return parseCountries(
-    await new DysonCloudTransport(options).send({
-      method: "GET",
-      path: CLOUD_ROUTES.supportedMarket,
-    }),
+    await withRetry(
+      () =>
+        transport.send({ method: "GET", path: CLOUD_ROUTES.supportedMarket }),
+      options.retry,
+    ),
   );
 }

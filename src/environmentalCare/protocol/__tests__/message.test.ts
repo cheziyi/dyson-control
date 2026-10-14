@@ -22,6 +22,15 @@ describe("parseEnvironmentalCareMessage", () => {
     ).toEqual({ name: "CURRENT-STATE", values: { fpwr: "ON", fnsp: "0003" } });
   });
 
+  it("reads the new value of each field of a STATE-CHANGE", () => {
+    expect(
+      parseEnvironmentalCareMessage({
+        msg: "STATE-CHANGE",
+        "product-state": { fpwr: ["OFF", "ON"], fnsp: ["0003", "0003"] },
+      }),
+    ).toEqual({ name: "STATE-CHANGE", values: { fpwr: "ON", fnsp: "0003" } });
+  });
+
   it("reads the data of a sensors message", () => {
     expect(
       parseEnvironmentalCareMessage({
@@ -35,7 +44,7 @@ describe("parseEnvironmentalCareMessage", () => {
   });
 
   it.each([
-    ["another message", { msg: "STATE-CHANGE", "product-state": {} }],
+    ["another message", { msg: "ANOTHER", "product-state": {} }],
     ["a state without fields", { msg: "CURRENT-STATE" }],
   ])("answers undefined for %s", (_name, message) => {
     expect(parseEnvironmentalCareMessage(message)).toBeUndefined();

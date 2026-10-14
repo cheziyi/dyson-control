@@ -30,9 +30,10 @@ changing the code it covers.
   in [UNSUPPORTED.md](UNSUPPORTED.md) with what is unknown; never ship a guess.
   List nothing there that is known: not what was tested, nor what the package
   has not built yet.
-- **Do what the MyDyson app does.** Send a request, a read before a write, a
-  fallback or a retry only where the app sends one. Polling is the caller's:
-  the package asks a machine only when called.
+- **Do what the MyDyson app does.** Send a request, a read before a write or
+  a fallback only where the app sends one. Retries are the package's own:
+  [DESIGN.md](DESIGN.md#retries) says which. Polling is the caller's: the
+  package asks a machine only when called.
 - **Two independent open-source clients that agree confirm a behaviour**
   where the MyDyson app does not show it. One client alone does not, and
   neither does a second that copies the first.

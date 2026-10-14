@@ -36,7 +36,8 @@ export interface RequestLoginCodeOptions extends DysonRegion {
 
 /** Has the cloud email a login code to the account's address, and resolves
  * with the `challengeId` to pass to `login` with that code. It rejects with
- * a `DysonError` when the request fails. */
+ * a `DysonError` when the request fails, and never retries: see
+ * DESIGN.md#retries. */
 export async function requestLoginCode(
   options: RequestLoginCodeOptions,
 ): Promise<string> {
@@ -62,7 +63,8 @@ export interface LoginOptions extends DysonRegion, LoginCredentials {
 /** Logs in with the account's password and the emailed code, and resolves
  * with the account to store. Pass the `country` and `culture`
  * `requestLoginCode` was given. It rejects with a `DysonError` when the
- * request fails, as it does for a wrong password or code. */
+ * request fails, as it does for a wrong password or code, and never
+ * retries: see DESIGN.md#retries. */
 export async function login(options: LoginOptions): Promise<DysonAccount> {
   const region = withDefaults(options);
   return parseLoginReply(

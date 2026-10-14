@@ -1,3 +1,4 @@
+import { connectAsync } from "mqtt";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMMAND_TOPIC,
@@ -6,7 +7,10 @@ import {
 } from "../../cloud/__tests__/mocks/broker.js";
 import { ACCOUNT } from "../../cloud/__tests__/mocks/cloud.js";
 import type { DysonMachine } from "../../cloud/models/machine.js";
-import { EnvironmentalCareClient } from "../client.js";
+import {
+  EnvironmentalCareClient,
+  type EnvironmentalCareClientOptions,
+} from "../client.js";
 
 vi.mock("mqtt", () => ({ connectAsync: vi.fn() }));
 
@@ -29,8 +33,11 @@ function answer(productState: Record<string, string> = PRODUCT_STATE): void {
   };
 }
 
-function client(machine: DysonMachine = MACHINE): EnvironmentalCareClient {
-  return new EnvironmentalCareClient(machine, { account: ACCOUNT });
+function client(
+  machine: DysonMachine = MACHINE,
+  options: Partial<EnvironmentalCareClientOptions> = {},
+): EnvironmentalCareClient {
+  return new EnvironmentalCareClient(machine, { account: ACCOUNT, ...options });
 }
 
 beforeEach(() => {
@@ -141,6 +148,81 @@ describe("EnvironmentalCareClient", () => {
       msg: "STATE-SET",
       data: { ffoc: "ON" },
     });
+  });
+
+  describe("onState", () => {
+    it("takes the state of a STATE-CHANGE, and of an answer to getState", async () => {
+      const onState = vi.fn();
+      const purifier = client(MACHINE, { onState });
+
+      await purifier.getState();
+      mock.broker.send({
+        msg: "STATE-CHANGE",
+        "product-state": { fpwr: ["ON", "OFF"], fnsp: ["0004", "0004"] },
+      });
+
+      expect(onState.mock.calls).toMatchObject([
+        [{ fanPower: true, fanSpeed: 4 }],
+        [{ fanPower: false, fanSpeed: 4 }],
+      ]);
+    });
+
+    it("takes nothing before the first call", () => {
+      const onState = vi.fn();
+      client(MACHINE, { onState });
+
+      mock.broker.send({
+        msg: "CURRENT-STATE",
+        "product-state": PRODUCT_STATE,
+      });
+
+      expect(onState).not.toHaveBeenCalled();
+    });
+  });
+
+  it("passes the readings the machine sends on to onSensors", async () => {
+    const onState = vi.fn();
+    const onSensors = vi.fn();
+    const purifier = client(MACHINE, { onState, onSensors });
+    await purifier.getSensors();
+
+    mock.broker.send({
+      msg: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
+      data: { tact: "2962", hact: "0060" },
+    });
+    mock.broker.send({ msg: "ANOTHER", data: { tact: "2972" } });
+
+    expect(onSensors.mock.calls).toMatchObject([
+      [{ temperatureInC: 22.05, humidityInPercent: 55 }],
+      [{ temperatureInC: 23.05, humidityInPercent: 60 }],
+    ]);
+    expect(onState).not.toHaveBeenCalled();
+  });
+
+  it("calls onReconnect once it connected again by itself, and onClose for a close", async () => {
+    const onReconnect = vi.fn();
+    const onClose = vi.fn();
+    const purifier = client(MACHINE, { onReconnect, onClose });
+    await purifier.getState();
+
+    mock.broker.drop();
+    await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
+    expect(onClose).not.toHaveBeenCalled();
+
+    await purifier.close();
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
+
+  it("asks again after a connection the broker refuses, by the delays it is given", async () => {
+    vi.mocked(connectAsync).mockRejectedValue(
+      new Error("connect ECONNREFUSED"),
+    );
+
+    await expect(
+      client(MACHINE, { retry: { delaysInMs: [0] } }).getState(),
+    ).rejects.toMatchObject({ httpStatusCode: 503 });
+
+    expect(connectAsync).toHaveBeenCalledTimes(2);
   });
 
   it("passes the user agent it is given on to the cloud", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getMachines } from "../machines.js";
-import { ACCOUNT, json, useMockCloud } from "./mocks/cloud.js";
+import { ACCOUNT, json, reset, useMockCloud } from "./mocks/cloud.js";
 
 const cloud = useMockCloud();
 
@@ -58,5 +58,23 @@ describe("getMachines", () => {
       "dyson-control",
       "my-app/1.0",
     ]);
+  });
+
+  it("asks again after a connection the cloud resets", async () => {
+    cloud.reply = () => (cloud.requests.length === 1 ? reset() : json([]));
+
+    await expect(getMachines(ACCOUNT)).resolves.toEqual([]);
+
+    expect(cloud.requests).toHaveLength(2);
+  });
+
+  it("asks once with no delays to retry after", async () => {
+    cloud.reply = reset;
+
+    await expect(
+      getMachines(ACCOUNT, { retry: { delaysInMs: [] } }),
+    ).rejects.toMatchObject({ httpStatusCode: 503 });
+
+    expect(cloud.requests).toHaveLength(1);
   });
 });

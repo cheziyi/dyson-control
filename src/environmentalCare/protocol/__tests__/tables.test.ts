@@ -21,6 +21,7 @@ describe("the environmental care tables", () => {
       },
       ENVIRONMENTAL_CARE_MESSAGES: {
         currentState: "CURRENT-STATE",
+        stateChange: "STATE-CHANGE",
         environmentalCurrentSensorData: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
       },
       ENVIRONMENTAL_CARE_FIELDS: {
