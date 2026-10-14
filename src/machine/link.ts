@@ -72,6 +72,9 @@ export class MachineLink {
   // a call may connect, and a connection that closes is opened again.
   private open = false;
   private reconnecting = false;
+  // Counts the calls to `close`, so a reconnect that `close` cut short
+  // leaves calling back to it.
+  private closes = 0;
   private readonly waiters = new Set<Waiter>();
 
   /** It sends nothing. */
@@ -128,13 +131,14 @@ export class MachineLink {
   /** Close the connection to the broker, and reject the calls that wait
    * with status 503. */
   async close(): Promise<void> {
+    const wasOpen = this.open;
     this.open = false;
-    const connection = this.connection;
-    if (connection === undefined) {
-      return;
-    }
+    this.closes += 1;
     // A connection that failed to open left nothing to close.
-    await (await connection.catch(() => undefined))?.close();
+    await (await this.connection?.catch(() => undefined))?.close();
+    if (wasOpen) {
+      this.onClose?.();
+    }
   }
 
   private async publish(
@@ -206,26 +210,29 @@ export class MachineLink {
       );
     }
     this.waiters.clear();
-    if (!this.reconnecting) {
+    if (this.open && !this.reconnecting) {
       void this.reconnect();
     }
   }
 
   private async reconnect(): Promise<void> {
     this.reconnecting = true;
+    const closes = this.closes;
     const reopened = await withRetry(() => this.reopen(), this.retry).then(
       () => true,
       () => false,
     );
     this.reconnecting = false;
-    if (reopened) {
+    if (this.closes !== closes) {
+      return;
+    }
+    // A call opens a connection of its own while the link reconnects, and
+    // one that outlasted the link's last attempt holds the link open.
+    if (reopened || this.connection !== undefined) {
       this.onReconnect?.();
       return;
     }
-    // A `connect` since `close` has opened a connection of its own.
-    if (this.connection === undefined) {
-      this.open = false;
-    }
+    this.open = false;
     this.onClose?.();
   }
 
