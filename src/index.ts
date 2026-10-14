@@ -1,22 +1,42 @@
-export * from "./cloud/connection.js";
-export * from "./cloud/countries.js";
-export * from "./cloud/login.js";
-export * from "./cloud/machines.js";
-export * from "./cloud/models/account.js";
-export * from "./cloud/models/machine.js";
-export * from "./cloud/protocol/account.js";
-export * from "./cloud/protocol/countries.js";
-export * from "./cloud/protocol/iotCredentials.js";
-export * from "./cloud/protocol/machines.js";
-export * from "./cloud/protocol/tables.js";
-export * from "./cloud/transport.js";
-export * from "./environmentalCare/client.js";
-export * from "./environmentalCare/models/state.js";
-export * from "./environmentalCare/protocol/message.js";
-export * from "./environmentalCare/protocol/state.js";
-export * from "./environmentalCare/protocol/tables.js";
-export * from "./environmentalCare/protocol/type.js";
-export * from "./error.js";
-export * from "./machine/link.js";
-export * from "./machine/protocol/message.js";
-export * from "./machine/protocol/tables.js";
+export { type GetCountriesOptions, getCountries } from "./cloud/countries.js";
+export {
+  type LoginOptions,
+  login,
+  type RequestLoginCodeOptions,
+  requestLoginCode,
+} from "./cloud/login.js";
+export { type GetMachinesOptions, getMachines } from "./cloud/machines.js";
+export type {
+  DysonAccount,
+  DysonRegion,
+  LoginCredentials,
+} from "./cloud/models/account.js";
+export {
+  type DysonMachine,
+  MACHINE_CATEGORIES,
+  type MachineCategory,
+  REMOTE_BROKER_TYPES,
+  type RemoteBrokerType,
+} from "./cloud/models/machine.js";
+export type { DysonRetryOptions } from "./cloud/transport.js";
+export {
+  EnvironmentalCareClient,
+  type EnvironmentalCareClientOptions,
+} from "./environmentalCare/client.js";
+export {
+  type EnvironmentalCareControl,
+  type EnvironmentalCareSensors,
+  type EnvironmentalCareState,
+  FAN_AIR_DIRECTIONS,
+  FAN_SPEEDS,
+  type FanAirDirection,
+  type FanSpeed,
+  HEAT_MODES,
+  type HeatMode,
+  HUMIDIFICATION_MODES,
+  type HumidificationMode,
+  OSCILLATION_MODES,
+  type OscillationAngles,
+  type OscillationMode,
+} from "./environmentalCare/models/state.js";
+export { DysonConnectionError, DysonError } from "./error.js";

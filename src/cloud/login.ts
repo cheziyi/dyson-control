@@ -1,8 +1,11 @@
-import type { DysonAccount, DysonRegion } from "./models/account.js";
+import type {
+  DysonAccount,
+  DysonRegion,
+  LoginCredentials,
+} from "./models/account.js";
 import {
   buildLoginCodeRequest,
   buildLoginRequest,
-  type LoginCredentials,
   parseLoginCodeReply,
   parseLoginReply,
 } from "./protocol/account.js";

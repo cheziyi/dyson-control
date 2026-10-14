@@ -1,5 +1,9 @@
 import { DysonError } from "../../error.js";
-import type { DysonAccount, DysonRegion } from "../models/account.js";
+import type {
+  DysonAccount,
+  DysonRegion,
+  LoginCredentials,
+} from "../models/account.js";
 import { CLOUD_CHINA_COUNTRY, CLOUD_ORIGINS } from "./tables.js";
 
 /** The cloud an account's requests go to, or the global one for no
@@ -34,15 +38,6 @@ export function parseLoginCodeReply(text: string): string {
     throw new DysonError("The Dyson cloud sent no challengeId", 502);
   }
   return challengeId;
-}
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-  /** What `parseLoginCodeReply` returned for the code. */
-  challengeId: string;
-  /** The code the cloud emailed. */
-  otpCode: string;
 }
 
 export function buildLoginRequest(credentials: LoginCredentials): unknown {

@@ -209,6 +209,22 @@ Rejected: the package's own names, with a boolean for each mode: `power`,
 A field that is `ON` or `OFF` alone stays a boolean: `fanPower`, `autoMode`,
 `nightMode`, `continuousMonitoring` and `autoHumidification`.
 
+## Exports
+
+`src/index.ts` names each export: the clients, the account calls, the models
+with their value lists, the errors, and the options of each. A caller reads
+and writes a field the models leave out through `getProductState` and
+`setProductState`.
+
+Rejected: `export *` from every module, which exported each `protocol/`
+function and table, `MachineLink`, `DysonConnection`, `DysonCloudTransport`
+and `withRetry`.
+
+- Every rename inside the package was then a breaking change, though the
+  README documented none of them.
+- A caller that built commands from the tables depended on the codes the
+  package exists to hide.
+
 ## Headers
 
 The package sends one header of its own on every request to the cloud, a
