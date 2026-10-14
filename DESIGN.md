@@ -78,7 +78,7 @@ while nothing was sent.
 | `getMachines`, `getCountries` | The request |
 | `connect` | Connecting, with new credentials each time |
 | A call on a client | The command. A call that waited for an answer when the connection closed sends its command again on the next one |
-| A connection that closes by itself | Connecting, by the same waits. A connection counts as open once it stays open as long as it took to open, and one that closes sooner as a failed attempt. `onReconnect` follows the connection that stays open, and `onClose` the last failure |
+| A connection that closes by itself | Connecting, by the same waits. A connection counts as open once it stays open as long as it took to open, and one that closes sooner as a failed attempt. `onReconnect` follows the connection that stays open, and `onDisconnect` the last failure |
 
 Not built: retrying by status, 502, 503 and 504, with a timeout reported as
 504.
@@ -102,14 +102,14 @@ backoff that grows to a cap.
 
 - With no route to the internet a request fails in another way than a
   refused or dropped connection, so the link gives up at once and calls
-  `onClose`: the caller picks how long to wait before it calls `connect`.
+  `onDisconnect`: the caller picks how long to wait before it calls `connect`.
 - A broker that closed each connection it accepted would have the link ask
   the cloud for credentials without end, about 2,500 times an hour. Taking a
   connection that closes sooner than it took to open as a failed attempt
   bounds that at six, and needs no constant: opening takes over a second,
   and a broker that refuses a connection closes it within milliseconds.
 
-`close` ends the retries: a call that waits then rejects with status 503,
+`disconnect` ends the retries: a call that waits then rejects with status 503,
 and nothing connects again until `connect`.
 
 ## A write from the machine's type
@@ -163,18 +163,23 @@ topic every client receives from, so a state comes whether this client asked
 for it, another did, or none.
 
 A caller calls `connect` before any other method, and the client holds the
-connection from then until `close`, opening another when it closes, as
+connection from then until `disconnect`, opening another when it closes, as
 [Retries](#retries) says. A call made without a connection rejects with
 status 503, and connects nothing.
 
 Rejected: connecting on the first call, and holding the connection from
 then.
 
-- `connect` and `close` are a pair: what `close` ends, `connect` began. With
-  a call that connected, `close` ended a connection the caller never
+- `connect` and `disconnect` are a pair: what `disconnect` ends, `connect` began. With
+  a call that connected, `disconnect` ended a connection the caller never
   opened, and the next call opened it again behind the caller's back.
 - A caller that only listened called `getState()` to start, sending the
   machine a request it did not want.
+
+Rejected: `close` and `onClose` for the end of the pair.
+
+- `close` did not pair with `connect`, and says the caller is done with the
+  client, though `connect` opens it again.
 
 Not built: a `REQUEST-CURRENT-STATE` on a timer, with a machine that answers
 none taken as gone.
