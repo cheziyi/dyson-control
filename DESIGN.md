@@ -170,11 +170,11 @@ status 503, and connects nothing.
 Rejected: connecting on the first call, and holding the connection from
 then.
 
-- The client is a connection held open, and a caller had to call
-  `getState()` to start one, and again after `onClose`.
-- A call after `close` connected again, so a call that waited when `close`
-  came had to be told apart from one made after it.
-- A caller that only listened sent the machine a request it did not want.
+- `connect` and `close` are a pair: what `close` ends, `connect` began. With
+  a call that connected, `close` ended a connection the caller never
+  opened, and the next call opened it again behind the caller's back.
+- A caller that only listened called `getState()` to start, sending the
+  machine a request it did not want.
 
 Not built: a `REQUEST-CURRENT-STATE` on a timer, with a machine that answers
 none taken as gone.
