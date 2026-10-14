@@ -64,6 +64,12 @@ from neither. Each folder has the same layers:
   table, so a wrong code is wrong everywhere and the tests still agree: the
   test is the second writing that catches it.
 - **Move a name into `machine/` only once a second kind of machine uses it.**
+- **Export from `src/index.ts` only what a caller calls, passes or
+  receives**: a client, an account call, a model, an error, and the options
+  of each. Name each export there, never `export *`, and add it to
+  `src/__tests__/index.test.ts`. A `protocol/` function, a link, a
+  connection or a transport stays inside the package:
+  [DESIGN.md](DESIGN.md#exports) says why.
 
 ## Comments
 

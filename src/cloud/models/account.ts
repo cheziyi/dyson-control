@@ -12,6 +12,16 @@ export interface DysonRegion {
   culture?: string;
 }
 
+/** What `login` takes to log an account in. */
+export interface LoginCredentials {
+  email: string;
+  password: string;
+  /** What `requestLoginCode` resolved with. */
+  challengeId: string;
+  /** The code the cloud emailed. */
+  otpCode: string;
+}
+
 /** A logged-in Dyson account, as `login` resolves with it. Store it and pass
  * it to `getMachines` and to a client: it holds no password. */
 export interface DysonAccount extends DysonRegion {
