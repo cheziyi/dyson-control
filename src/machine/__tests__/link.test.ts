@@ -199,6 +199,47 @@ describe("MachineLink", () => {
       expect(mock.credentialRequests).toHaveLength(4);
     });
 
+    it("calls onReconnect, not onClose, when a call connected after the link's last attempt", async () => {
+      const onReconnect = vi.fn();
+      const onClose = vi.fn();
+      const machineLink = await connected({
+        retry: { delaysInMs: [] },
+        onReconnect,
+        onClose,
+      });
+      let dropped = false;
+      // The link's one attempt takes 50 ms to open and the broker closes it
+      // 1 ms after. The call's connection takes 5 ms and stays open.
+      vi.mocked(connectAsync)
+        .mockImplementationOnce(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          const broker = new Broker();
+          broker.subscribeAsync = async () => {
+            setTimeout(() => {
+              broker.drop();
+              dropped = true;
+            }, 1);
+            return [{ qos: 1 }];
+          };
+          return broker as unknown as Awaited<ReturnType<typeof connectAsync>>;
+        })
+        .mockImplementationOnce(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          mock.broker = new Broker();
+          return mock.broker as unknown as Awaited<
+            ReturnType<typeof connectAsync>
+          >;
+        });
+
+      mock.broker.drop();
+      await vi.waitFor(() => expect(dropped).toBe(true));
+      await machineLink.send("A");
+      await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
+
+      expect(onClose).not.toHaveBeenCalled();
+      expect(mock.broker.commands()).toEqual(["A"]);
+    });
+
     it("calls onClose when it fails to connect again, and rejects calls until connect", async () => {
       const onReconnect = vi.fn();
       const onClose = vi.fn();
@@ -275,16 +316,41 @@ describe("MachineLink", () => {
       expect(mock.credentialRequests).toHaveLength(2);
     });
 
-    it("calls onClose, and connects no more by itself", async () => {
+    it("calls onClose once it has closed, and connects no more by itself", async () => {
       const onReconnect = vi.fn();
       const onClose = vi.fn();
       const machineLink = await connected({ onReconnect, onClose });
 
       await machineLink.close();
-      await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+      expect(onClose).toHaveBeenCalledOnce();
+      await machineLink.close();
 
+      expect(onClose).toHaveBeenCalledOnce();
       expect(onReconnect).not.toHaveBeenCalled();
       expect(mock.credentialRequests).toHaveLength(1);
+    });
+
+    it("calls onClose once for a close while it connects again, and nothing for the reconnect", async () => {
+      const onReconnect = vi.fn();
+      const onClose = vi.fn();
+      const machineLink = await connected({
+        retry: { delaysInMs: [50] },
+        onReconnect,
+        onClose,
+      });
+      vi.mocked(connectAsync).mockRejectedValueOnce(
+        new Error("connect ECONNREFUSED"),
+      );
+
+      mock.broker.drop();
+      await vi.waitFor(() => expect(connectAsync).toHaveBeenCalledTimes(2));
+      await machineLink.close();
+      await machineLink.connect();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      expect(onClose).toHaveBeenCalledOnce();
+      expect(onReconnect).not.toHaveBeenCalled();
+      await machineLink.send("A");
     });
 
     it("does nothing before connect", async () => {
