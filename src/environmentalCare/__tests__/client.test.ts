@@ -211,17 +211,17 @@ describe("EnvironmentalCareClient", () => {
     expect(onState).not.toHaveBeenCalled();
   });
 
-  it("calls onReconnect once it connected again by itself, and onClose for a close", async () => {
+  it("calls onReconnect once it connected again by itself, and onDisconnect for a disconnect", async () => {
     const onReconnect = vi.fn();
-    const onClose = vi.fn();
-    const purifier = await connected(MACHINE, { onReconnect, onClose });
+    const onDisconnect = vi.fn();
+    const purifier = await connected(MACHINE, { onReconnect, onDisconnect });
 
     mock.broker.drop();
     await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onDisconnect).not.toHaveBeenCalled();
 
-    await purifier.close();
-    await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    await purifier.disconnect();
+    await vi.waitFor(() => expect(onDisconnect).toHaveBeenCalledOnce());
   });
 
   it("asks again after a connection the broker refuses, by the delays it is given", async () => {
@@ -251,7 +251,7 @@ describe("EnvironmentalCareClient", () => {
     });
 
     await purifier.connect();
-    await purifier.close();
+    await purifier.disconnect();
 
     await expect(purifier.setState({ nightMode: true })).rejects.toMatchObject({
       httpStatusCode: 503,

@@ -108,7 +108,7 @@ describe("MachineLink", () => {
       expect(mock.credentialRequests).toHaveLength(2);
     });
 
-    it("rejects with status 503 when the link is closed under it, and connects no more", async () => {
+    it("rejects with status 503 when the link is disconnected under it, and connects no more", async () => {
       const machineLink = await connected();
 
       const reply = machineLink.request("A", "REPLY");
@@ -116,7 +116,7 @@ describe("MachineLink", () => {
         new DysonError("Not connected: call connect first", 503),
       );
       await vi.waitFor(() => expect(mock.broker.published).toHaveLength(1));
-      await machineLink.close();
+      await machineLink.disconnect();
       await rejection;
 
       expect(mock.credentialRequests).toHaveLength(1);
@@ -162,8 +162,8 @@ describe("MachineLink", () => {
     it("connects again by itself, calls onReconnect and receives again", async () => {
       const onMessage = vi.fn();
       const onReconnect = vi.fn();
-      const onClose = vi.fn();
-      await connected({ onMessage, onReconnect, onClose });
+      const onDisconnect = vi.fn();
+      await connected({ onMessage, onReconnect, onDisconnect });
 
       mock.broker.drop();
       await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
@@ -171,13 +171,17 @@ describe("MachineLink", () => {
 
       expect(mock.credentialRequests).toHaveLength(2);
       expect(onMessage.mock.calls).toEqual([[{ msg: "STATE-CHANGE" }]]);
-      expect(onClose).not.toHaveBeenCalled();
+      expect(onDisconnect).not.toHaveBeenCalled();
     });
 
     it("takes a connection that closes sooner than it took to open as a failed attempt", async () => {
       const onReconnect = vi.fn();
-      const onClose = vi.fn();
-      await connected({ retry: { delaysInMs: [0, 0] }, onReconnect, onClose });
+      const onDisconnect = vi.fn();
+      await connected({
+        retry: { delaysInMs: [0, 0] },
+        onReconnect,
+        onDisconnect,
+      });
       // Each connection from now takes 20 ms to open, and the broker closes
       // it 1 ms after.
       vi.mocked(connectAsync).mockImplementation(async () => {
@@ -192,20 +196,20 @@ describe("MachineLink", () => {
       });
 
       mock.broker.drop();
-      await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(onDisconnect).toHaveBeenCalledOnce());
 
       expect(onReconnect).not.toHaveBeenCalled();
       // The first connection, then one attempt and one for each delay.
       expect(mock.credentialRequests).toHaveLength(4);
     });
 
-    it("calls onReconnect, not onClose, when a call connected after the link's last attempt", async () => {
+    it("calls onReconnect, not onDisconnect, when a call connected after the link's last attempt", async () => {
       const onReconnect = vi.fn();
-      const onClose = vi.fn();
+      const onDisconnect = vi.fn();
       const machineLink = await connected({
         retry: { delaysInMs: [] },
         onReconnect,
-        onClose,
+        onDisconnect,
       });
       let dropped = false;
       // The link's one attempt takes 50 ms to open and the broker closes it
@@ -236,18 +240,18 @@ describe("MachineLink", () => {
       await machineLink.send("A");
       await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
 
-      expect(onClose).not.toHaveBeenCalled();
+      expect(onDisconnect).not.toHaveBeenCalled();
       expect(mock.broker.commands()).toEqual(["A"]);
     });
 
-    it("calls onClose when it fails to connect again, and rejects calls until connect", async () => {
+    it("calls onDisconnect when it fails to connect again, and rejects calls until connect", async () => {
       const onReconnect = vi.fn();
-      const onClose = vi.fn();
-      const machineLink = await connected({ onReconnect, onClose });
+      const onDisconnect = vi.fn();
+      const machineLink = await connected({ onReconnect, onDisconnect });
 
       mock.credentialStatusCode = 401;
       mock.broker.drop();
-      await vi.waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(onDisconnect).toHaveBeenCalledOnce());
       mock.credentialStatusCode = 200;
       await expect(machineLink.send("A")).rejects.toMatchObject({
         httpStatusCode: 503,
@@ -305,38 +309,38 @@ describe("MachineLink", () => {
     expect(mock.credentialRequests).toHaveLength(2);
   });
 
-  describe("close", () => {
+  describe("disconnect", () => {
     it("closes the connection, and connect opens another", async () => {
       const machineLink = await connected();
 
-      await machineLink.close();
+      await machineLink.disconnect();
       await machineLink.connect();
       await machineLink.send("A");
 
       expect(mock.credentialRequests).toHaveLength(2);
     });
 
-    it("calls onClose once it has closed, and connects no more by itself", async () => {
+    it("calls onDisconnect once it has disconnected, and connects no more by itself", async () => {
       const onReconnect = vi.fn();
-      const onClose = vi.fn();
-      const machineLink = await connected({ onReconnect, onClose });
+      const onDisconnect = vi.fn();
+      const machineLink = await connected({ onReconnect, onDisconnect });
 
-      await machineLink.close();
-      expect(onClose).toHaveBeenCalledOnce();
-      await machineLink.close();
+      await machineLink.disconnect();
+      expect(onDisconnect).toHaveBeenCalledOnce();
+      await machineLink.disconnect();
 
-      expect(onClose).toHaveBeenCalledOnce();
+      expect(onDisconnect).toHaveBeenCalledOnce();
       expect(onReconnect).not.toHaveBeenCalled();
       expect(mock.credentialRequests).toHaveLength(1);
     });
 
-    it("calls onClose once for a close while it connects again, and nothing for the reconnect", async () => {
+    it("calls onDisconnect once for a disconnect while it connects again, and nothing for the reconnect", async () => {
       const onReconnect = vi.fn();
-      const onClose = vi.fn();
+      const onDisconnect = vi.fn();
       const machineLink = await connected({
         retry: { delaysInMs: [50] },
         onReconnect,
-        onClose,
+        onDisconnect,
       });
       vi.mocked(connectAsync).mockRejectedValueOnce(
         new Error("connect ECONNREFUSED"),
@@ -344,17 +348,17 @@ describe("MachineLink", () => {
 
       mock.broker.drop();
       await vi.waitFor(() => expect(connectAsync).toHaveBeenCalledTimes(2));
-      await machineLink.close();
+      await machineLink.disconnect();
       await machineLink.connect();
       await new Promise((resolve) => setTimeout(resolve, 80));
 
-      expect(onClose).toHaveBeenCalledOnce();
+      expect(onDisconnect).toHaveBeenCalledOnce();
       expect(onReconnect).not.toHaveBeenCalled();
       await machineLink.send("A");
     });
 
     it("does nothing before connect", async () => {
-      await link().close();
+      await link().disconnect();
 
       expect(connectAsync).not.toHaveBeenCalled();
     });

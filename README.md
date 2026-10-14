@@ -60,8 +60,8 @@ await client.setState({ fanSpeed: 5, oscillationMode: "on" });
 const { temperatureInC, pm25InUgPerM3 } =
   await client.getSensors();
 
-// 4. Close the connection when you're done with the machine.
-await client.close();
+// 4. Disconnect when you're done with the machine.
+await client.disconnect();
 ```
 
 ### Account
@@ -210,7 +210,7 @@ const client = new EnvironmentalCareClient(machine, {
   onState: (state) => console.log(state.fanSpeed),
   onSensors: (sensors) => console.log(sensors.temperatureInC),
   onReconnect: () => client.getState().catch(console.error),
-  onClose: () => console.log("closed"),
+  onDisconnect: () => console.log("closed"),
 });
 
 await client.connect();
@@ -221,10 +221,10 @@ const state = await client.getState(); // what the machine holds now
 | --- | --- |
 | Receives from `connect()`, which asks the machine nothing | Call `getState()` after it for the state the machine holds now |
 | Connects again by itself when the connection closes, and calls `onReconnect` | Call `getState()` there: what the machine sent in between is lost |
-| Gives up when connecting again fails, as it does at once with no route to the internet, and calls `onClose` | Call `connect()` again on your own schedule: every other call rejects with status 503 until it resolves |
+| Gives up when connecting again fails, as it does at once with no route to the internet, and calls `onDisconnect` | Call `connect()` again on your own schedule: every other call rejects with status 503 until it resolves |
 | Calls `onState` with the answer to a `getState()` too, whichever client asked, and with a state the machine sends again unchanged | Compare a state with the last one before acting on it |
 | Calls `onSensors` with the answer to a `getSensors()`, whichever client asked. When a machine sends its readings unasked is [not known](UNSUPPORTED.md#messages) | Call `getSensors()` on your own schedule for readings as they change |
-| Calls `onClose` for a `close()` as well | Call again only where you did not close |
+| Calls `onDisconnect` for a `disconnect()` as well | Call again only where you did not disconnect |
 | Asks the machine nothing on a timer | Call `getState()` on your own schedule to tell a machine that is unplugged: it sends nothing, and the call rejects with status 504 |
 
 ### The machine's own fields
@@ -246,7 +246,7 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 | 401 | The cloud rejected the login or the account's token, or the broker rejected the credentials the cloud issued or the subscription to the machine's topic |
 | 501 | The machine is on the RabbitMQ broker, which no client connects to: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
 | 502 | The cloud answered with a reply that does not parse, or the machine with a message that lacks its fields |
-| 503 | The cloud or the broker refused or dropped the connection (a `DysonConnectionError`), or the client is not connected: `connect()` has not resolved, or `close()` or `onClose` came since |
+| 503 | The cloud or the broker refused or dropped the connection (a `DysonConnectionError`), or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |
 | 504 | The cloud, the broker or the machine did not answer in time. A machine that is unplugged or off its Wi-Fi answers nothing |
 | 429 | The cloud was asked for a login code again within seconds of the last one: wait before asking again |
 | Any other | The cloud's own HTTP status |
@@ -254,7 +254,7 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 Only a `DysonConnectionError` is retried, up to five times by default, and
 never for `requestLoginCode()` or `login()`. A client connects again by the
 same retries, with new credentials, when its connection closes other than by
-`close()`.
+`disconnect()`.
 [DESIGN.md](DESIGN.md#retries) says why.
 
 | To | Pass |

@@ -40,9 +40,9 @@ export interface MachineLinkOptions {
    * Defaults to doing nothing. */
   onReconnect?: () => void;
   /** Called when the connection closed and the link opened no other:
-   * `close` closed it, or connecting again failed. Nothing connects again
+   * `disconnect` ended it, or connecting again failed. Nothing connects again
    * until `connect`. Defaults to doing nothing. */
-  onClose?: () => void;
+  onDisconnect?: () => void;
 }
 
 interface Waiter {
@@ -56,7 +56,7 @@ interface Waiter {
  * each kind of machine sends its commands over. It publishes to the
  * machine's `command` topic and receives from its `status/current` topic.
  *
- * It holds a connection from `connect` until `close`, connecting again by
+ * It holds a connection from `connect` until `disconnect`, connecting again by
  * itself, with new credentials, when the connection closes any other way.
  * Every method rejects with a `DysonError` when it fails, after retrying a
  * refused or dropped connection. */
@@ -66,15 +66,15 @@ export class MachineLink {
   private readonly retry: MachineLinkOptions["retry"];
   private readonly onMessage: MachineLinkOptions["onMessage"];
   private readonly onReconnect: MachineLinkOptions["onReconnect"];
-  private readonly onClose: MachineLinkOptions["onClose"];
+  private readonly onDisconnect: MachineLinkOptions["onDisconnect"];
   private connection: Promise<DysonConnection> | undefined;
-  // From `connect` until `close`, or until connecting again fails: whether
+  // From `connect` until `disconnect`, or until connecting again fails: whether
   // a call may connect, and a connection that closes is opened again.
   private open = false;
   private reconnecting = false;
-  // Counts the calls to `close`, so a reconnect that `close` cut short
+  // Counts the calls to `disconnect`, so a reconnect that one cut short
   // leaves calling back to it.
-  private closes = 0;
+  private disconnects = 0;
   private readonly waiters = new Set<Waiter>();
 
   /** It sends nothing. */
@@ -86,7 +86,7 @@ export class MachineLink {
     this.retry = options.retry;
     this.onMessage = options.onMessage;
     this.onReconnect = options.onReconnect;
-    this.onClose = options.onClose;
+    this.onDisconnect = options.onDisconnect;
     this.transport = new DysonCloudTransport({
       country: options.account.country,
       account: options.account,
@@ -128,16 +128,16 @@ export class MachineLink {
     }, this.retry);
   }
 
-  /** Close the connection to the broker, and reject the calls that wait
-   * with status 503. */
-  async close(): Promise<void> {
+  /** Closes the connection to the broker, rejects the calls that wait
+   * with status 503, and calls `onDisconnect` once it has closed. */
+  async disconnect(): Promise<void> {
     const wasOpen = this.open;
     this.open = false;
-    this.closes += 1;
+    this.disconnects += 1;
     // A connection that failed to open left nothing to close.
     await (await this.connection?.catch(() => undefined))?.close();
     if (wasOpen) {
-      this.onClose?.();
+      this.onDisconnect?.();
     }
   }
 
@@ -217,13 +217,13 @@ export class MachineLink {
 
   private async reconnect(): Promise<void> {
     this.reconnecting = true;
-    const closes = this.closes;
+    const disconnects = this.disconnects;
     const reopened = await withRetry(() => this.reopen(), this.retry).then(
       () => true,
       () => false,
     );
     this.reconnecting = false;
-    if (this.closes !== closes) {
+    if (this.disconnects !== disconnects) {
       return;
     }
     // A call opens a connection of its own while the link reconnects, and
@@ -233,7 +233,7 @@ export class MachineLink {
       return;
     }
     this.open = false;
-    this.onClose?.();
+    this.onDisconnect?.();
   }
 
   // A connection counts as open again once it stays open as long as it took
