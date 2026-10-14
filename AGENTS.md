@@ -154,6 +154,10 @@ Before `1.0.0`, a change that makes callers edit their code bumps the minor
 (`0.13.0` → `0.14.0`), and everything else bumps the patch. Take the level of
 the largest change in the release.
 
+**Break the API for a better structure.** Never keep a worse shape to spare
+callers an edit: the break costs a minor bump and a line in the release
+notes.
+
 ## Pull requests, commits, and comments
 
 - **Say who does what, in order.** "`fetch` times out, so the transport throws a
