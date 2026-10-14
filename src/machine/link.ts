@@ -41,7 +41,7 @@ export interface MachineLinkOptions {
   onReconnect?: () => void;
   /** Called when the connection closed and the link opened no other:
    * `close` closed it, or connecting again failed. Nothing connects again
-   * until the next call. Defaults to doing nothing. */
+   * until `connect`. Defaults to doing nothing. */
   onClose?: () => void;
 }
 
@@ -56,10 +56,10 @@ interface Waiter {
  * each kind of machine sends its commands over. It publishes to the
  * machine's `command` topic and receives from its `status/current` topic.
  *
- * It connects on the first call and holds the connection until `close`,
- * connecting again by itself, with new credentials, when the connection
- * closes any other way. Every method rejects with a `DysonError` when it
- * fails, after retrying a refused or dropped connection. */
+ * It holds a connection from `connect` until `close`, connecting again by
+ * itself, with new credentials, when the connection closes any other way.
+ * Every method rejects with a `DysonError` when it fails, after retrying a
+ * refused or dropped connection. */
 export class MachineLink {
   private readonly transport: DysonCloudTransport;
   private readonly timeoutInMs: number;
@@ -68,9 +68,9 @@ export class MachineLink {
   private readonly onReconnect: MachineLinkOptions["onReconnect"];
   private readonly onClose: MachineLinkOptions["onClose"];
   private connection: Promise<DysonConnection> | undefined;
-  // From a call until `close`: whether a connection that closes is opened
-  // again.
-  private keepOpen = false;
+  // From `connect` until `close`, or until connecting again fails: whether
+  // a call may connect, and a connection that closes is opened again.
+  private open = false;
   private reconnecting = false;
   private readonly waiters = new Set<Waiter>();
 
@@ -92,19 +92,30 @@ export class MachineLink {
     });
   }
 
+  /** Asks the cloud for credentials, connects to the broker and resolves
+   * once the link receives what the machine sends. Calling it while
+   * connected does nothing. */
+  async connect(): Promise<void> {
+    this.open = true;
+    try {
+      await withRetry(() => this.openConnection(), this.retry);
+    } catch (error) {
+      this.open = false;
+      throw error;
+    }
+  }
+
   /** Sends a command, with `fields` beside its `msg`. It resolves once the
    * broker has it. */
   async send(msg: string, fields?: Record<string, unknown>): Promise<void> {
-    this.keepOpen = true;
     await withRetry(() => this.publish(msg, fields), this.retry);
   }
 
   /** Sends a command and resolves with the next message whose `msg` is
    * `reply`. It rejects with status 504 when none comes in time. */
   async request(msg: string, reply: string): Promise<MachineMessage> {
-    this.keepOpen = true;
     return withRetry(async () => {
-      await this.connect();
+      await this.openConnection();
       // Waiting from before the publish, so a fast answer is not missed.
       const [message] = await Promise.all([
         this.nextMessage(reply),
@@ -115,9 +126,9 @@ export class MachineLink {
   }
 
   /** Close the connection to the broker, and reject the calls that wait
-   * with status 503. A call made afterwards connects again. */
+   * with status 503. */
   async close(): Promise<void> {
-    this.keepOpen = false;
+    this.open = false;
     const connection = this.connection;
     if (connection === undefined) {
       return;
@@ -130,7 +141,7 @@ export class MachineLink {
     msg: string,
     fields?: Record<string, unknown>,
   ): Promise<void> {
-    const connection = await this.connect();
+    const connection = await this.openConnection();
     await connection.publish(
       encodeMachineTopic(this.machine, "command"),
       buildMachineCommand(msg, new Date(), fields),
@@ -167,10 +178,12 @@ export class MachineLink {
     this.onMessage?.(message);
   }
 
-  private connect(): Promise<DysonConnection> {
-    if (!this.keepOpen) {
-      // Not a `DysonConnectionError`, which a call in flight would retry.
-      return Promise.reject(new DysonError("The link was closed", 503));
+  private openConnection(): Promise<DysonConnection> {
+    if (!this.open) {
+      // Not a `DysonConnectionError`, which `withRetry` would repeat.
+      return Promise.reject(
+        new DysonError("Not connected: call connect first", 503),
+      );
     }
     this.connection ??= DysonConnection.open(this.machine, this.transport, {
       topic: encodeMachineTopic(this.machine, "status"),
@@ -207,9 +220,13 @@ export class MachineLink {
     this.reconnecting = false;
     if (reopened) {
       this.onReconnect?.();
-    } else {
-      this.onClose?.();
+      return;
     }
+    // A `connect` since `close` has opened a connection of its own.
+    if (this.connection === undefined) {
+      this.open = false;
+    }
+    this.onClose?.();
   }
 
   // A connection counts as open again once it stays open as long as it took
@@ -218,7 +235,7 @@ export class MachineLink {
   // the cloud for credentials without end.
   private async reopen(): Promise<void> {
     const startedAt = Date.now();
-    const connection = this.connect();
+    const connection = this.openConnection();
     await connection;
     const openingInMs = Date.now() - startedAt;
     await new Promise((resolve) => setTimeout(resolve, openingInMs));

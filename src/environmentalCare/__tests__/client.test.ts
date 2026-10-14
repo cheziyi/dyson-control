@@ -40,6 +40,15 @@ function client(
   return new EnvironmentalCareClient(machine, { account: ACCOUNT, ...options });
 }
 
+async function connected(
+  machine: DysonMachine = MACHINE,
+  options: Partial<EnvironmentalCareClientOptions> = {},
+): Promise<EnvironmentalCareClient> {
+  const purifier = client(machine, options);
+  await purifier.connect();
+  return purifier;
+}
+
 beforeEach(() => {
   answer();
 });
@@ -61,7 +70,7 @@ describe("EnvironmentalCareClient", () => {
   });
 
   it("reads the state the machine answers a request with", async () => {
-    await expect(client().getState()).resolves.toMatchObject({
+    await expect((await connected()).getState()).resolves.toMatchObject({
       fanPower: true,
       autoMode: false,
       fanSpeed: 4,
@@ -74,7 +83,7 @@ describe("EnvironmentalCareClient", () => {
   });
 
   it("reads the sensors with one request", async () => {
-    await expect(client().getSensors()).resolves.toMatchObject({
+    await expect((await connected()).getSensors()).resolves.toMatchObject({
       temperatureInC: 22.05,
       humidityInPercent: 55,
     });
@@ -85,7 +94,7 @@ describe("EnvironmentalCareClient", () => {
 
   it("reads the fields of the first generation by the machine's type", async () => {
     answer({ fmod: "AUTO", fnsp: "0003" });
-    const purifier = client({ ...MACHINE, type: "475" });
+    const purifier = await connected({ ...MACHINE, type: "475" });
 
     await expect(purifier.getState()).resolves.toMatchObject({
       fanPower: true,
@@ -103,14 +112,14 @@ describe("EnvironmentalCareClient", () => {
       "REQUEST-CURRENT-STATE": [{ msg: "CURRENT-STATE" }],
     };
 
-    await expect(client().getState()).rejects.toMatchObject({
+    await expect((await connected()).getState()).rejects.toMatchObject({
       httpStatusCode: 502,
     });
   });
 
   describe("setState", () => {
     it("sends the fields the control sets in one command, without a read", async () => {
-      await client().setState({ fanSpeed: 7, nightMode: true });
+      await (await connected()).setState({ fanSpeed: 7, nightMode: true });
 
       expect(mock.broker.published).toMatchObject([
         {
@@ -124,7 +133,9 @@ describe("EnvironmentalCareClient", () => {
     });
 
     it("writes the fields of the first generation by the machine's type", async () => {
-      await client({ ...MACHINE, type: "475" }).setState({ autoMode: true });
+      await (await connected({ ...MACHINE, type: "475" })).setState({
+        autoMode: true,
+      });
 
       expect(mock.broker.published[0]?.message).toMatchObject({
         data: { fmod: "AUTO" },
@@ -132,14 +143,14 @@ describe("EnvironmentalCareClient", () => {
     });
 
     it("sends nothing for a control that sets nothing", async () => {
-      await client().setState({});
+      await (await connected()).setState({});
 
       expect(mock.broker.published).toEqual([]);
     });
   });
 
   it("reads and writes the machine's own fields", async () => {
-    const purifier = client();
+    const purifier = await connected();
 
     await expect(purifier.getProductState()).resolves.toEqual(PRODUCT_STATE);
     await purifier.setProductState({ ffoc: "ON" });
@@ -153,7 +164,7 @@ describe("EnvironmentalCareClient", () => {
   describe("onState", () => {
     it("takes the state of a STATE-CHANGE, and of an answer to getState", async () => {
       const onState = vi.fn();
-      const purifier = client(MACHINE, { onState });
+      const purifier = await connected(MACHINE, { onState });
 
       await purifier.getState();
       mock.broker.send({
@@ -167,23 +178,24 @@ describe("EnvironmentalCareClient", () => {
       ]);
     });
 
-    it("takes nothing before the first call", () => {
+    it("takes what the machine sends from connect, which asks it nothing", async () => {
       const onState = vi.fn();
-      client(MACHINE, { onState });
+      await connected(MACHINE, { onState });
 
       mock.broker.send({
         msg: "CURRENT-STATE",
         "product-state": PRODUCT_STATE,
       });
 
-      expect(onState).not.toHaveBeenCalled();
+      expect(mock.broker.published).toEqual([]);
+      expect(onState).toHaveBeenCalledOnce();
     });
   });
 
   it("passes the readings the machine sends on to onSensors", async () => {
     const onState = vi.fn();
     const onSensors = vi.fn();
-    const purifier = client(MACHINE, { onState, onSensors });
+    const purifier = await connected(MACHINE, { onState, onSensors });
     await purifier.getSensors();
 
     mock.broker.send({
@@ -202,8 +214,7 @@ describe("EnvironmentalCareClient", () => {
   it("calls onReconnect once it connected again by itself, and onClose for a close", async () => {
     const onReconnect = vi.fn();
     const onClose = vi.fn();
-    const purifier = client(MACHINE, { onReconnect, onClose });
-    await purifier.getState();
+    const purifier = await connected(MACHINE, { onReconnect, onClose });
 
     mock.broker.drop();
     await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
@@ -219,32 +230,32 @@ describe("EnvironmentalCareClient", () => {
     );
 
     await expect(
-      client(MACHINE, { retry: { delaysInMs: [0] } }).getState(),
+      connected(MACHINE, { retry: { delaysInMs: [0] } }),
     ).rejects.toMatchObject({ httpStatusCode: 503 });
 
     expect(connectAsync).toHaveBeenCalledTimes(2);
   });
 
   it("passes the user agent it is given on to the cloud", async () => {
-    const purifier = new EnvironmentalCareClient(MACHINE, {
-      account: ACCOUNT,
-      userAgent: "my-app/1.0",
-    });
-
-    await purifier.getState();
+    await connected(MACHINE, { userAgent: "my-app/1.0" });
 
     expect(mock.credentialRequests[0]?.headers).toMatchObject({
       "User-Agent": "my-app/1.0",
     });
   });
 
-  it("closes the link", async () => {
+  it("rejects a call with status 503 before connect and after close", async () => {
     const purifier = client();
-    await purifier.getState();
+    await expect(purifier.getState()).rejects.toMatchObject({
+      httpStatusCode: 503,
+    });
 
+    await purifier.connect();
     await purifier.close();
-    await purifier.getState();
 
-    expect(mock.credentialRequests).toHaveLength(2);
+    await expect(purifier.setState({ nightMode: true })).rejects.toMatchObject({
+      httpStatusCode: 503,
+    });
+    expect(mock.broker.published).toEqual([]);
   });
 });

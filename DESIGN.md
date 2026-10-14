@@ -2,8 +2,8 @@
 
 ## Connectivity
 
-A client reaches a machine through the Dyson cloud alone. On its first call
-it posts the machine's serial number to `/v2/authorize/iot-credentials`,
+A client reaches a machine through the Dyson cloud alone. On `connect` it
+posts the machine's serial number to `/v2/authorize/iot-credentials`,
 opens an MQTT connection over TLS to the broker the reply names, on port 443
 with the ALPN protocol `mqtt`, and subscribes to the machine's
 `status/current` topic. Every command goes to the machine's `command` topic
@@ -76,7 +76,8 @@ while nothing was sent.
 | What | Retried |
 | --- | --- |
 | `getMachines`, `getCountries` | The request |
-| A call on a client | Connecting, with new credentials each time, then the command. A call that waited for an answer when the connection closed sends its command again on the next one |
+| `connect` | Connecting, with new credentials each time |
+| A call on a client | The command. A call that waited for an answer when the connection closed sends its command again on the next one |
 | A connection that closes by itself | Connecting, by the same waits. A connection counts as open once it stays open as long as it took to open, and one that closes sooner as a failed attempt. `onReconnect` follows the connection that stays open, and `onClose` the last failure |
 
 Not built: retrying by status, 502, 503 and 504, with a timeout reported as
@@ -101,7 +102,7 @@ backoff that grows to a cap.
 
 - With no route to the internet a request fails in another way than a
   refused or dropped connection, so the link gives up at once and calls
-  `onClose`: the caller picks how long to wait, and its next call connects.
+  `onClose`: the caller picks how long to wait before it calls `connect`.
 - A broker that closed each connection it accepted would have the link ask
   the cloud for credentials without end, about 2,500 times an hour. Taking a
   connection that closes sooner than it took to open as a failed attempt
@@ -109,7 +110,7 @@ backoff that grows to a cap.
   and a broker that refuses a connection closes it within milliseconds.
 
 `close` ends the retries: a call that waits then rejects with status 503,
-and nothing connects again until the next call.
+and nothing connects again until `connect`.
 
 ## A write from the machine's type
 
@@ -161,9 +162,19 @@ machine sends a `STATE-CHANGE` by itself, and answers a request on the one
 topic every client receives from, so a state comes whether this client asked
 for it, another did, or none.
 
-The client first connects on a call: a caller calls `getState()` to start
-receiving. It holds the connection from then until `close`, and opens
-another when it closes, as [Retries](#retries) says.
+A caller calls `connect` before any other method, and the client holds the
+connection from then until `close`, opening another when it closes, as
+[Retries](#retries) says. A call made without a connection rejects with
+status 503, and connects nothing.
+
+Rejected: connecting on the first call, and holding the connection from
+then.
+
+- The client is a connection held open, and a caller had to call
+  `getState()` to start one, and again after `onClose`.
+- A call after `close` connected again, so a call that waited when `close`
+  came had to be told apart from one made after it.
+- A caller that only listened sent the machine a request it did not want.
 
 Not built: a `REQUEST-CURRENT-STATE` on a timer, with a machine that answers
 none taken as gone.
@@ -177,10 +188,6 @@ for the state that changed while it received nothing.
 - The client asks a machine only when called, and `onReconnect` tells the
   caller when to call `getState()`.
 
-Not built: a method that connects and asks the machine nothing.
-
-- A caller that starts receiving wants the state it starts from, and
-  `getState()` connects and resolves with it.
 
 ## Names and modes
 

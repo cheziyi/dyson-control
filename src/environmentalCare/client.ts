@@ -45,8 +45,8 @@ export interface EnvironmentalCareClientOptions {
   retry?: DysonRetryOptions;
   /** Called with each state the machine sends while the client is
    * connected: one it sends by itself, changed or not, and its answer to a
-   * `getState`, this client's or another's. Nothing comes before the first
-   * call connects, or after `onClose`. Defaults to doing nothing. */
+   * `getState`, this client's or another's. Nothing comes before `connect`
+   * or after `onClose`. Defaults to doing nothing. */
   onState?: (state: EnvironmentalCareState) => void;
   /** Called with each set of readings the machine sends while the client
    * is connected: its answer to a `getSensors`, this client's or another's,
@@ -61,16 +61,18 @@ export interface EnvironmentalCareClientOptions {
   onReconnect?: () => void;
   /** Called when the connection closed and the client opened no other:
    * `close` closed it, or connecting again failed. Nothing connects again
-   * until the next call. Defaults to doing nothing: see
+   * until `connect`. Defaults to doing nothing: see
    * `MachineLinkOptions.onClose`. */
   onClose?: () => void;
 }
 
 /** A purifier, fan, heater or humidifier: a machine of the
- * `environmentalCare` category. It connects on the first call and holds
- * the connection until `close`, and every method rejects with a
- * `DysonError` when its request fails, after retrying a refused or dropped
- * connection. Call `close` when done with the machine. */
+ * `environmentalCare` category. Call `connect` before any other method,
+ * and `close` when done with the machine: the client holds the connection
+ * between the two, and opens another by itself when it closes. Every method
+ * rejects with a `DysonError` when it fails, after retrying a refused or
+ * dropped connection, and with status 503 when the client is not
+ * connected. */
 export class EnvironmentalCareClient {
   private readonly link: MachineLink;
   private readonly type: EnvironmentalCareType;
@@ -103,8 +105,17 @@ export class EnvironmentalCareClient {
     });
   }
 
-  /** Close the connection to the broker. A call made afterwards connects
-   * again. */
+  /** Asks the cloud for credentials, connects to the broker and resolves
+   * once the client receives what the machine sends. It asks the machine
+   * nothing, so `onState` waits for the machine to send a state: call
+   * `getState` for the one it holds now. Calling it while connected does
+   * nothing. */
+  connect(): Promise<void> {
+    return this.link.connect();
+  }
+
+  /** Close the connection to the broker, and reject the calls that wait
+   * with status 503. `connect` opens another. */
   close(): Promise<void> {
     return this.link.close();
   }
