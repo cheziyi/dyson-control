@@ -1,6 +1,7 @@
 import { connectAsync } from "mqtt";
 import { describe, expect, it, vi } from "vitest";
 import {
+  Broker,
   COMMAND_TOPIC,
   MACHINE,
   useMockBroker,
@@ -17,26 +18,42 @@ function link(options: Partial<MachineLinkOptions> = {}): MachineLink {
   return new MachineLink(MACHINE, { account: ACCOUNT, ...options });
 }
 
+async function connected(
+  options: Partial<MachineLinkOptions> = {},
+): Promise<MachineLink> {
+  const machineLink = link(options);
+  await machineLink.connect();
+  return machineLink;
+}
+
 describe("MachineLink", () => {
-  it("sends nothing until the first call", () => {
+  it("sends nothing until connect", () => {
     link();
 
     expect(mock.credentialRequests).toHaveLength(0);
     expect(connectAsync).not.toHaveBeenCalled();
   });
 
-  it("connects once for calls made at the same time, and for later ones", async () => {
-    const machineLink = link();
+  it("connects once, for every call and a second connect", async () => {
+    const machineLink = await connected();
 
     await Promise.all([machineLink.send("A"), machineLink.send("B")]);
-    await machineLink.send("C");
+    await machineLink.connect();
 
     expect(mock.credentialRequests).toHaveLength(1);
     expect(connectAsync).toHaveBeenCalledOnce();
   });
 
+  it("rejects a call with status 503 before connect, and sends nothing", async () => {
+    await expect(link().send("A")).rejects.toEqual(
+      new DysonError("Not connected: call connect first", 503),
+    );
+
+    expect(connectAsync).not.toHaveBeenCalled();
+  });
+
   it("sends a command to the machine's command topic, with its fields", async () => {
-    await link().send("STATE-SET", { data: { fnsp: "0005" } });
+    await (await connected()).send("STATE-SET", { data: { fnsp: "0005" } });
 
     expect(mock.broker.published).toEqual([
       {
@@ -61,7 +78,7 @@ describe("MachineLink", () => {
       };
 
       await expect(
-        link().request("REQUEST-CURRENT-STATE", "CURRENT-STATE"),
+        (await connected()).request("REQUEST-CURRENT-STATE", "CURRENT-STATE"),
       ).resolves.toEqual({
         msg: "CURRENT-STATE",
         "product-state": { fpwr: "ON" },
@@ -70,7 +87,7 @@ describe("MachineLink", () => {
 
     it("rejects with status 504 when the machine does not answer in time", async () => {
       await expect(
-        link({ timeoutInMs: 20 }).request(
+        (await connected({ timeoutInMs: 20 })).request(
           "REQUEST-CURRENT-STATE",
           "CURRENT-STATE",
         ),
@@ -79,26 +96,176 @@ describe("MachineLink", () => {
       );
     });
 
-    it("rejects when the connection closes, and the next call connects again", async () => {
-      const machineLink = link();
+    it("asks again on a new connection when the connection closes under it", async () => {
+      const machineLink = await connected();
 
-      const reply = machineLink.request(
-        "REQUEST-CURRENT-STATE",
-        "CURRENT-STATE",
-      );
-      const rejection =
-        expect(reply).rejects.toBeInstanceOf(DysonConnectionError);
+      const reply = machineLink.request("A", "REPLY");
       await vi.waitFor(() => expect(mock.broker.published).toHaveLength(1));
-      mock.broker.emit("close");
+      mock.broker.answers = { A: [{ msg: "REPLY" }] };
+      mock.broker.drop();
+
+      await expect(reply).resolves.toEqual({ msg: "REPLY" });
+      expect(mock.credentialRequests).toHaveLength(2);
+    });
+
+    it("rejects with status 503 when the link is disconnected under it, and connects no more", async () => {
+      const machineLink = await connected();
+
+      const reply = machineLink.request("A", "REPLY");
+      const rejection = expect(reply).rejects.toEqual(
+        new DysonError("Not connected: call connect first", 503),
+      );
+      await vi.waitFor(() => expect(mock.broker.published).toHaveLength(1));
+      await machineLink.disconnect();
       await rejection;
 
-      await machineLink.send("A");
+      expect(mock.credentialRequests).toHaveLength(1);
+    });
+  });
+
+  describe("retry", () => {
+    const refused = new Error("connect ECONNREFUSED");
+
+    it("connects again after a connection the broker refuses", async () => {
+      vi.mocked(connectAsync)
+        .mockRejectedValueOnce(refused)
+        .mockRejectedValueOnce(refused);
+
+      await connected({ retry: { delaysInMs: [0, 0] } });
+
+      expect(connectAsync).toHaveBeenCalledTimes(3);
+      expect(mock.broker.subscribed).toHaveLength(1);
+    });
+
+    it("rejects with the DysonConnectionError of the last attempt", async () => {
+      vi.mocked(connectAsync).mockRejectedValue(refused);
+
+      await expect(
+        connected({ retry: { delaysInMs: [0] } }),
+      ).rejects.toBeInstanceOf(DysonConnectionError);
+
+      expect(connectAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it("connects once with no delays to retry after", async () => {
+      vi.mocked(connectAsync).mockRejectedValue(refused);
+
+      await expect(
+        connected({ retry: { delaysInMs: [] } }),
+      ).rejects.toBeInstanceOf(DysonConnectionError);
+
+      expect(connectAsync).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("when the connection closes", () => {
+    it("connects again by itself, calls onReconnect and receives again", async () => {
+      const onMessage = vi.fn();
+      const onReconnect = vi.fn();
+      const onDisconnect = vi.fn();
+      await connected({ onMessage, onReconnect, onDisconnect });
+
+      mock.broker.drop();
+      await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
+      mock.broker.send({ msg: "STATE-CHANGE" });
+
       expect(mock.credentialRequests).toHaveLength(2);
+      expect(onMessage.mock.calls).toEqual([[{ msg: "STATE-CHANGE" }]]);
+      expect(onDisconnect).not.toHaveBeenCalled();
+    });
+
+    it("takes a connection that closes sooner than it took to open as a failed attempt", async () => {
+      const onReconnect = vi.fn();
+      const onDisconnect = vi.fn();
+      await connected({
+        retry: { delaysInMs: [0, 0] },
+        onReconnect,
+        onDisconnect,
+      });
+      // Each connection from now takes 20 ms to open, and the broker closes
+      // it 1 ms after.
+      vi.mocked(connectAsync).mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        const broker = new Broker();
+        broker.subscribeAsync = async () => {
+          setTimeout(() => broker.drop(), 1);
+          return [{ qos: 1 }];
+        };
+        mock.broker = broker;
+        return broker as unknown as Awaited<ReturnType<typeof connectAsync>>;
+      });
+
+      mock.broker.drop();
+      await vi.waitFor(() => expect(onDisconnect).toHaveBeenCalledOnce());
+
+      expect(onReconnect).not.toHaveBeenCalled();
+      // The first connection, then one attempt and one for each delay.
+      expect(mock.credentialRequests).toHaveLength(4);
+    });
+
+    it("calls onReconnect, not onDisconnect, when a call connected after the link's last attempt", async () => {
+      const onReconnect = vi.fn();
+      const onDisconnect = vi.fn();
+      const machineLink = await connected({
+        retry: { delaysInMs: [] },
+        onReconnect,
+        onDisconnect,
+      });
+      let dropped = false;
+      // The link's one attempt takes 50 ms to open and the broker closes it
+      // 1 ms after. The call's connection takes 5 ms and stays open.
+      vi.mocked(connectAsync)
+        .mockImplementationOnce(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          const broker = new Broker();
+          broker.subscribeAsync = async () => {
+            setTimeout(() => {
+              broker.drop();
+              dropped = true;
+            }, 1);
+            return [{ qos: 1 }];
+          };
+          return broker as unknown as Awaited<ReturnType<typeof connectAsync>>;
+        })
+        .mockImplementationOnce(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          mock.broker = new Broker();
+          return mock.broker as unknown as Awaited<
+            ReturnType<typeof connectAsync>
+          >;
+        });
+
+      mock.broker.drop();
+      await vi.waitFor(() => expect(dropped).toBe(true));
+      await machineLink.send("A");
+      await vi.waitFor(() => expect(onReconnect).toHaveBeenCalledOnce());
+
+      expect(onDisconnect).not.toHaveBeenCalled();
+      expect(mock.broker.commands()).toEqual(["A"]);
+    });
+
+    it("calls onDisconnect when it fails to connect again, and rejects calls until connect", async () => {
+      const onReconnect = vi.fn();
+      const onDisconnect = vi.fn();
+      const machineLink = await connected({ onReconnect, onDisconnect });
+
+      mock.credentialStatusCode = 401;
+      mock.broker.drop();
+      await vi.waitFor(() => expect(onDisconnect).toHaveBeenCalledOnce());
+      mock.credentialStatusCode = 200;
+      await expect(machineLink.send("A")).rejects.toMatchObject({
+        httpStatusCode: 503,
+      });
+      await machineLink.connect();
+      await machineLink.send("A");
+
+      expect(onReconnect).not.toHaveBeenCalled();
+      expect(mock.credentialRequests).toHaveLength(3);
     });
   });
 
   it("passes over a payload that is no message", async () => {
-    const machineLink = link({ timeoutInMs: 20 });
+    const machineLink = await connected({ timeoutInMs: 20 });
     mock.broker.answers = { A: ["no message", { msg: "REPLY" }] };
 
     await expect(machineLink.request("A", "REPLY")).resolves.toEqual({
@@ -106,9 +273,23 @@ describe("MachineLink", () => {
     });
   });
 
+  it("passes each message on to onMessage, the answer to a request included", async () => {
+    const onMessage = vi.fn();
+    const machineLink = await connected({ onMessage });
+    mock.broker.answers = { A: [{ msg: "REPLY" }] };
+
+    await machineLink.request("A", "REPLY");
+    mock.broker.send({ msg: "STATE-CHANGE", "product-state": {} });
+
+    expect(onMessage.mock.calls).toEqual([
+      [{ msg: "REPLY" }],
+      [{ msg: "STATE-CHANGE", "product-state": {} }],
+    ]);
+  });
+
   it("asks the cloud with its own user agent, or the one it is given", async () => {
-    await link().send("A");
-    await link({ userAgent: "my-app/1.0" }).send("A");
+    await connected();
+    await connected({ userAgent: "my-app/1.0" });
 
     expect(
       mock.credentialRequests.map((each) => each.headers["User-Agent"]),
@@ -119,28 +300,65 @@ describe("MachineLink", () => {
     const machineLink = link();
     mock.credentialStatusCode = 401;
 
-    await expect(machineLink.send("A")).rejects.toMatchObject({
+    await expect(machineLink.connect()).rejects.toMatchObject({
       httpStatusCode: 401,
     });
     mock.credentialStatusCode = 200;
-    await machineLink.send("A");
+    await machineLink.connect();
 
     expect(mock.credentialRequests).toHaveLength(2);
   });
 
-  describe("close", () => {
-    it("closes the connection, and the next call opens another", async () => {
-      const machineLink = link();
-      await machineLink.send("A");
+  describe("disconnect", () => {
+    it("closes the connection, and connect opens another", async () => {
+      const machineLink = await connected();
 
-      await machineLink.close();
+      await machineLink.disconnect();
+      await machineLink.connect();
       await machineLink.send("A");
 
       expect(mock.credentialRequests).toHaveLength(2);
     });
 
-    it("does nothing before the first call", async () => {
-      await link().close();
+    it("calls onDisconnect once it has disconnected, and connects no more by itself", async () => {
+      const onReconnect = vi.fn();
+      const onDisconnect = vi.fn();
+      const machineLink = await connected({ onReconnect, onDisconnect });
+
+      await machineLink.disconnect();
+      expect(onDisconnect).toHaveBeenCalledOnce();
+      await machineLink.disconnect();
+
+      expect(onDisconnect).toHaveBeenCalledOnce();
+      expect(onReconnect).not.toHaveBeenCalled();
+      expect(mock.credentialRequests).toHaveLength(1);
+    });
+
+    it("calls onDisconnect once for a disconnect while it connects again, and nothing for the reconnect", async () => {
+      const onReconnect = vi.fn();
+      const onDisconnect = vi.fn();
+      const machineLink = await connected({
+        retry: { delaysInMs: [50] },
+        onReconnect,
+        onDisconnect,
+      });
+      vi.mocked(connectAsync).mockRejectedValueOnce(
+        new Error("connect ECONNREFUSED"),
+      );
+
+      mock.broker.drop();
+      await vi.waitFor(() => expect(connectAsync).toHaveBeenCalledTimes(2));
+      await machineLink.disconnect();
+      await machineLink.connect();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      expect(onDisconnect).toHaveBeenCalledOnce();
+      expect(onReconnect).not.toHaveBeenCalled();
+      await machineLink.send("A");
+    });
+
+    it("does nothing before connect", async () => {
+      await link().disconnect();
 
       expect(connectAsync).not.toHaveBeenCalled();
     });

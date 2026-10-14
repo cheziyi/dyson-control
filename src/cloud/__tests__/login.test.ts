@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DysonError } from "../../error.js";
 import { login, requestLoginCode } from "../login.js";
-import { ACCOUNT, json, useMockCloud } from "./mocks/cloud.js";
+import { ACCOUNT, json, reset, useMockCloud } from "./mocks/cloud.js";
 
 const cloud = useMockCloud();
 
@@ -68,6 +68,16 @@ describe("requestLoginCode", () => {
     expect(cloud.requests[0]?.url).toBe(
       "https://appapi.cp.dyson.cn/v3/userregistration/email/auth?country=CN&culture=zh-CN",
     );
+  });
+
+  it("asks once, even after a connection the cloud resets", async () => {
+    cloud.reply = reset;
+
+    await expect(
+      requestLoginCode({ email: "me@example.com" }),
+    ).rejects.toMatchObject({ httpStatusCode: 503 });
+
+    expect(cloud.requests).toHaveLength(1);
   });
 });
 
@@ -139,5 +149,15 @@ describe("login", () => {
         401,
       ),
     );
+  });
+
+  it("asks once, even after a connection the cloud resets", async () => {
+    cloud.reply = reset;
+
+    await expect(login(options)).rejects.toMatchObject({
+      httpStatusCode: 503,
+    });
+
+    expect(cloud.requests).toHaveLength(1);
   });
 });

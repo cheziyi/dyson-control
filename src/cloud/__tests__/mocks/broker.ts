@@ -32,6 +32,7 @@ export class Broker extends EventEmitter {
   answers: Record<string, unknown[]> = {};
   /** What the SUBACK grants each subscription: 128 refuses it. */
   grantedQos = 1;
+  connected = true;
 
   async subscribeAsync(topic: string): Promise<{ qos: number }[]> {
     this.subscribed.push(topic);
@@ -47,6 +48,12 @@ export class Broker extends EventEmitter {
   }
 
   async endAsync(): Promise<void> {
+    this.drop();
+  }
+
+  /** The broker closes the connection. */
+  drop(): void {
+    this.connected = false;
     this.emit("close");
   }
 
@@ -61,6 +68,7 @@ export class Broker extends EventEmitter {
 }
 
 export interface MockBroker {
+  /** The broker of the latest connection. */
   broker: Broker;
   /** The requests for broker credentials the cloud was sent. */
   credentialRequests: CloudRequest[];
@@ -85,10 +93,17 @@ export function useMockBroker(): MockBroker {
     mock.credentialStatusCode = 200;
     vi.mocked(connectAsync)
       .mockReset()
-      .mockImplementation(
-        async () =>
-          mock.broker as unknown as Awaited<ReturnType<typeof connectAsync>>,
-      );
+      .mockImplementation(async () => {
+        // A connection that closed is not opened again: the next one gets a
+        // broker of its own, which answers as the last one did.
+        if (!mock.broker.connected) {
+          const { answers, grantedQos } = mock.broker;
+          mock.broker = Object.assign(new Broker(), { answers, grantedQos });
+        }
+        return mock.broker as unknown as Awaited<
+          ReturnType<typeof connectAsync>
+        >;
+      });
     cloud.reply = () => json(CREDENTIALS, mock.credentialStatusCode);
   });
 

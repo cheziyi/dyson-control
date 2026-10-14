@@ -31,6 +31,14 @@ export function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
+/** Throws what `fetch` does for a connection the cloud resets: the
+ * socket's error is the cause of its own. */
+export function reset(): never {
+  throw new TypeError("fetch failed", {
+    cause: Object.assign(new Error("reset"), { code: "ECONNRESET" }),
+  });
+}
+
 /** Puts a mock in place of `fetch` for each test of the file, so no request
  * leaves this computer. Set `reply` inside a test to answer its requests. */
 export function useMockCloud(): MockCloud {

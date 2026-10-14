@@ -2,8 +2,8 @@
 
 ## Connectivity
 
-A client reaches a machine through the Dyson cloud alone. On its first call
-it posts the machine's serial number to `/v2/authorize/iot-credentials`,
+A client reaches a machine through the Dyson cloud alone. On `connect` it
+posts the machine's serial number to `/v2/authorize/iot-credentials`,
 opens an MQTT connection over TLS to the broker the reply names, on port 443
 with the ALPN protocol `mqtt`, and subscribes to the machine's
 `status/current` topic. Every command goes to the machine's `command` topic
@@ -55,14 +55,62 @@ Rejected: the environmental care machines alone.
 
 A `MachineLink` asks the cloud for new credentials each time it connects,
 and a `DysonConnection` never reconnects by itself: the MQTT library's
-`reconnectPeriod` is 0. When the connection closes, the link drops it,
-rejects the calls that wait for an answer with a `DysonConnectionError`, and
-connects again on the next call.
+`reconnectPeriod` is 0. When the connection closes, the link opens another
+with new credentials, as [Retries](#retries) says.
 
 Not built: the MQTT library reconnecting with the credentials it has.
 
 - How long the broker accepts a set of credentials is not known, so a
   reconnect with old ones could fail for as long as the link lives.
+
+## Retries
+
+`withRetry` repeats only a `DysonConnectionError`: a connection the cloud or
+the broker refused, reset or closed. By default it tries up to five more
+times: at once, then after 50, 100, 200 and 400 ms, so it gives up about
+750 ms after the first failure. The first retry waits for nothing because the
+likeliest causes fail at once and are fixed by a new connection: a reused
+connection the cloud has already closed, and a broker connection that closed
+while nothing was sent.
+
+| What | Retried |
+| --- | --- |
+| `getMachines`, `getCountries` | The request |
+| `connect` | Connecting, with new credentials each time |
+| A call on a client | The command. A call that waited for an answer when the connection closed sends its command again on the next one |
+| A connection that closes by itself | Connecting, by the same waits. A connection counts as open once it stays open as long as it took to open, and one that closes sooner as a failed attempt. `onReconnect` follows the connection that stays open, and `onDisconnect` the last failure |
+
+Not built: retrying by status, 502, 503 and 504, with a timeout reported as
+504.
+
+- A timeout costs a full `timeoutInMs` for each attempt, so a machine that is
+  unplugged would keep a call from failing for a minute.
+- An HTTP status the cloud sent is the cloud's reply, and asking again gets
+  the same one.
+
+A `STATE-SET` is retried as well: it sets each field to a value, so one that
+landed twice changes nothing.
+
+Not built: retrying `requestLoginCode` and `login`.
+
+- A connection can drop after the cloud took the request. The cloud answers
+  HTTP 429 to a second request for a code within seconds of the first, and
+  whether it takes a login code twice is not known.
+
+Not built: connecting again without end after a connection closes, with a
+backoff that grows to a cap.
+
+- With no route to the internet a request fails in another way than a
+  refused or dropped connection, so the link gives up at once and calls
+  `onDisconnect`: the caller picks how long to wait before it calls `connect`.
+- A broker that closed each connection it accepted would have the link ask
+  the cloud for credentials without end, about 2,500 times an hour. Taking a
+  connection that closes sooner than it took to open as a failed attempt
+  bounds that at six, and needs no constant: opening takes over a second,
+  and a broker that refuses a connection closes it within milliseconds.
+
+`disconnect` ends the retries: a call that waits then rejects with status 503,
+and nothing connects again until `connect`.
 
 ## A write from the machine's type
 
@@ -95,9 +143,6 @@ first generation has no way to take one without it, since `fmod` is `FAN` or
 `AUTO` for a machine that is on, and the later types then behave alike. A
 `fanPower` of `false` also sends the sleep timer off, in the same command.
 
-The client does not poll. A caller that wants the state as it changes calls
-`getState()` on its own schedule.
-
 Not built: skipping a write of a value the machine already reports.
 
 - The client holds no state to compare with, so it sends every field it is
@@ -108,6 +153,46 @@ a US one.
 
 - The client has no region to go by: a caller passes `heatMode: "off"` with
   `fanPower: true`.
+
+## State as the machine reports it
+
+A client passes each state and each set of readings the machine sends on to
+the `onState` and `onSensors` a caller gives it, and holds none of it. A
+machine sends a `STATE-CHANGE` by itself, and answers a request on the one
+topic every client receives from, so a state comes whether this client asked
+for it, another did, or none.
+
+A caller calls `connect` before any other method, and the client holds the
+connection from then until `disconnect`, opening another when it closes, as
+[Retries](#retries) says. A call made without a connection rejects with
+status 503, and connects nothing.
+
+Rejected: connecting on the first call, and holding the connection from
+then.
+
+- `connect` and `disconnect` are a pair: what `disconnect` ends, `connect` began. With
+  a call that connected, `disconnect` ended a connection the caller never
+  opened, and the next call opened it again behind the caller's back.
+- A caller that only listened called `getState()` to start, sending the
+  machine a request it did not want.
+
+Rejected: `close` and `onClose` for the end of the pair.
+
+- `close` did not pair with `connect`, and says the caller is done with the
+  client, though `connect` opens it again.
+
+Not built: a `REQUEST-CURRENT-STATE` on a timer, with a machine that answers
+none taken as gone.
+
+- Polling is the caller's: `getState()` on the caller's own schedule tells
+  the same, and rejects with status 504 for a machine that answers nothing.
+
+Not built: a `REQUEST-CURRENT-STATE` once the client has connected again,
+for the state that changed while it received nothing.
+
+- The client asks a machine only when called, and `onReconnect` tells the
+  caller when to call `getState()`.
+
 
 ## Names and modes
 

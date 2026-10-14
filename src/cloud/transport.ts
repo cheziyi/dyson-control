@@ -10,6 +10,39 @@ export const DEFAULT_TIMEOUT_IN_MS = 10_000;
 
 export const DEFAULT_USER_AGENT = "dyson-control";
 
+export interface DysonRetryOptions {
+  /** How long, in milliseconds, to wait before each retry, so its length is
+   * how many times a call is retried. Defaults to 0, 50, 100, 200 and 400:
+   * see DESIGN.md#retries. Pass an empty array to never retry. */
+  delaysInMs?: number[];
+}
+
+const DEFAULT_RETRY_DELAYS_IN_MS = [0, 50, 100, 200, 400];
+
+/** Runs `operation` again each time it throws a `DysonConnectionError`, once
+ * for each of `delaysInMs`, and throws any other error at once: see
+ * DESIGN.md#retries. */
+export async function withRetry<ResultT>(
+  operation: () => Promise<ResultT>,
+  { delaysInMs = DEFAULT_RETRY_DELAYS_IN_MS }: DysonRetryOptions = {},
+): Promise<ResultT> {
+  for (const delayInMs of delaysInMs) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!(error instanceof DysonConnectionError)) {
+        throw error;
+      }
+    }
+    await sleep(delayInMs);
+  }
+  return operation();
+}
+
+function sleep(delayInMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, delayInMs));
+}
+
 // The codes for a refused, reset or closed connection, as `fetch` reports
 // them on the `cause` of what it throws. Every other failure, such as a
 // timeout or a TLS error, is not one.
@@ -52,7 +85,8 @@ export class DysonCloudTransport {
     this.origin = encodeCloudOrigin(options.country);
   }
 
-  /** Sends one request and returns the reply's body as text.
+  /** Sends one request and returns the reply's body as text. It never
+   * retries: wrap the call in `withRetry` for that.
    *
    * It throws a `DysonConnectionError` when the cloud refuses, resets or
    * closes the connection, and a `DysonError` with status 504 when the

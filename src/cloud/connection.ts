@@ -29,8 +29,8 @@ export interface DysonConnectionOptions {
   timeoutInMs: number;
   /** Called with the payload of each message on `topic`, as text. */
   onMessage: (payload: string) => void;
-  /** Called once, when the connection closes for any reason, `close`
-   * included. */
+  /** Called once, when a connection `open` resolved with closes for any
+   * reason, `close` included. */
   onClose: () => void;
 }
 
@@ -90,7 +90,6 @@ export class DysonConnection {
     // An EventEmitter throws an error nothing listens for, and `close`
     // follows each one.
     client.on("error", () => {});
-    client.on("close", options.onClose);
     client.on("message", (_topic, payload) => {
       options.onMessage(payload.toString("utf8"));
     });
@@ -114,6 +113,12 @@ export class DysonConnection {
         401,
       );
     }
+    if (!client.connected) {
+      throw new DysonConnectionError(
+        "The Dyson broker closed the connection as it opened",
+      );
+    }
+    client.on("close", options.onClose);
     return connection;
   }
 

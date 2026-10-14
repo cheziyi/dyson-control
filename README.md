@@ -50,8 +50,9 @@ if (machine === undefined) {
   throw new Error("The account has no environmental care machine");
 }
 
-// 3. Read and control. Nothing is sent until the first call.
+// 3. Connect, then read and control.
 const client = new EnvironmentalCareClient(machine, { account });
+await client.connect();
 
 const state = await client.getState();
 await client.setState({ fanSpeed: 5, oscillationMode: "on" });
@@ -59,8 +60,8 @@ await client.setState({ fanSpeed: 5, oscillationMode: "on" });
 const { temperatureInC, pm25InUgPerM3 } =
   await client.getSensors();
 
-// 4. Close the connection when you're done with the machine.
-await client.close();
+// 4. Disconnect when you're done with the machine.
+await client.disconnect();
 ```
 
 ### Account
@@ -198,6 +199,34 @@ The types `455`, `455C`, `469` and `475` hold their power and their auto mode
 as one value, so `setState({ fanPower: true })` takes one of them out of auto
 mode: pass `autoMode: true` with it to switch on in auto mode.
 
+### State as the machine reports it
+
+Pass `onState` and `onSensors` to a client to receive what the machine
+sends, without asking for it again:
+
+```ts
+const client = new EnvironmentalCareClient(machine, {
+  account,
+  onState: (state) => console.log(state.fanSpeed),
+  onSensors: (sensors) => console.log(sensors.temperatureInC),
+  onReconnect: () => client.getState().catch(console.error),
+  onDisconnect: () => console.log("closed"),
+});
+
+await client.connect();
+const state = await client.getState(); // what the machine holds now
+```
+
+| It | So |
+| --- | --- |
+| Receives from `connect()`, which asks the machine nothing | Call `getState()` after it for the state the machine holds now |
+| Connects again by itself when the connection closes, and calls `onReconnect` | Call `getState()` there: what the machine sent in between is lost |
+| Gives up when connecting again fails, as it does at once with no route to the internet, and calls `onDisconnect` | Call `connect()` again on your own schedule: every other call rejects with status 503 until it resolves |
+| Calls `onState` with the answer to a `getState()` too, whichever client asked, and with a state the machine sends again unchanged | Compare a state with the last one before acting on it |
+| Calls `onSensors` with the answer to a `getSensors()`, whichever client asked. When a machine sends its readings unasked is [not known](UNSUPPORTED.md#messages) | Call `getSensors()` on your own schedule for readings as they change |
+| Calls `onDisconnect` for a `disconnect()` as well | Call again only where you did not disconnect |
+| Asks the machine nothing on a timer | Call `getState()` on your own schedule to tell a machine that is unplugged: it sends nothing, and the call rejects with status 504 |
+
 ### The machine's own fields
 
 Read or write a field `EnvironmentalCareState` does not model with the
@@ -208,7 +237,7 @@ const fields = await client.getProductState(); // { fpwr: "ON", fnsp: "0005", ..
 await client.setProductState({ ffoc: "ON" });
 ```
 
-### Errors
+### Errors and retries
 
 A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 
@@ -217,14 +246,21 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 | 401 | The cloud rejected the login or the account's token, or the broker rejected the credentials the cloud issued or the subscription to the machine's topic |
 | 501 | The machine is on the RabbitMQ broker, which no client connects to: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
 | 502 | The cloud answered with a reply that does not parse, or the machine with a message that lacks its fields |
-| 503 | The cloud or the broker refused or dropped the connection (a `DysonConnectionError`) |
+| 503 | The cloud or the broker refused or dropped the connection (a `DysonConnectionError`), or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |
 | 504 | The cloud, the broker or the machine did not answer in time. A machine that is unplugged or off its Wi-Fi answers nothing |
 | 429 | The cloud was asked for a login code again within seconds of the last one: wait before asking again |
 | Any other | The cloud's own HTTP status |
 
-No call is retried. A client connects again on the call after its connection
-closed, with new credentials:
-[DESIGN.md](DESIGN.md#credentials-for-one-connection) says why.
+Only a `DysonConnectionError` is retried, up to five times by default, and
+never for `requestLoginCode()` or `login()`. A client connects again by the
+same retries, with new credentials, when its connection closes other than by
+`disconnect()`.
+[DESIGN.md](DESIGN.md#retries) says why.
+
+| To | Pass |
+| --- | --- |
+| Change how often and how long a call retries | `retry: { delaysInMs: [0, 500] }` to a client, `getMachines()` or `getCountries()`: one wait, in milliseconds, before each retry |
+| Stop a call retrying | `retry: { delaysInMs: [] }` the same way |
 
 Pass `timeoutInMs` to a client, or to an account call, to wait
 other than the default 10000 for each of the cloud, the broker and the

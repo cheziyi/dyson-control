@@ -11,6 +11,12 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | How long the cloud accepts an account's token, and whether it can be renewed without a new login code | A caller logs in again when calls reject with status 401 |
 | How long the broker accepts a set of credentials | A `MachineLink` asks for new ones for every connection: [DESIGN.md](DESIGN.md#credentials-for-one-connection) |
 
+## Messages
+
+| Not known | So |
+| --- | --- |
+| When a machine sends an `ENVIRONMENTAL-CURRENT-SENSOR-DATA` without being asked for one | `onSensors` is certain only of the answer to a `getSensors()`, and a caller that wants the readings as they change asks on its own schedule |
+
 ## Names
 
 | Not known | So |

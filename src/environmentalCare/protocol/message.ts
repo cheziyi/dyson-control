@@ -5,7 +5,8 @@ export type EnvironmentalCareMessageName =
   (typeof ENVIRONMENTAL_CARE_MESSAGES)[keyof typeof ENVIRONMENTAL_CARE_MESSAGES];
 
 /** A state or a sensors message of an environmental care machine, with its
- * fields flattened to field -> value. */
+ * fields flattened to field -> value. A `STATE-CHANGE` holds every field of
+ * the state, as a `CURRENT-STATE` does. */
 export interface EnvironmentalCareMessage {
   name: EnvironmentalCareMessageName;
   values: Record<string, string>;
@@ -37,8 +38,10 @@ export function parseEnvironmentalCareMessage(
   }
   const values: Record<string, string> = {};
   for (const [field, value] of Object.entries(fields)) {
-    if (typeof value === "string") {
-      values[field] = value;
+    // A `STATE-CHANGE` holds each field as its old value and its new one.
+    const current: unknown = Array.isArray(value) ? value[1] : value;
+    if (typeof current === "string") {
+      values[field] = current;
     }
   }
   return { name, values };
