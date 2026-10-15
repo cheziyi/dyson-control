@@ -23,6 +23,10 @@ export {
   EnvironmentalCareClient,
   type EnvironmentalCareClientOptions,
 } from "./environmentalCare/client.js";
+export type {
+  EnvironmentalCareCapabilities,
+  OscillationKind,
+} from "./environmentalCare/models/capabilities.js";
 export {
   type EnvironmentalCareControl,
   type EnvironmentalCareSensors,
@@ -39,4 +43,5 @@ export {
   type OscillationAngles,
   type OscillationMode,
 } from "./environmentalCare/models/state.js";
+export { parseEnvironmentalCareCapabilities } from "./environmentalCare/protocol/capabilities.js";
 export { DysonConnectionError, DysonError } from "./error.js";

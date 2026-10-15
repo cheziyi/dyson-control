@@ -41,6 +41,7 @@ function parseMachine(entry: unknown): DysonMachine | undefined {
     return undefined;
   }
   const mqtt = object(configuration.mqtt);
+  const firmware = object(configuration.firmware);
   const machine: DysonMachine = { serialNumber, type };
   const optional = {
     mqttRootTopicLevel: text(mqtt.mqttRootTopicLevel),
@@ -51,7 +52,8 @@ function parseMachine(entry: unknown): DysonMachine | undefined {
     variant: text(fields.variant),
     model: text(fields.model),
     productName: text(fields.productName),
-    firmwareVersion: text(object(configuration.firmware).version),
+    firmwareVersion: text(firmware.version),
+    capabilities: strings(firmware.capabilities),
   };
   // Without the keys of the fields the cloud left out.
   Object.assign(machine, JSON.parse(JSON.stringify(optional)));
@@ -71,4 +73,10 @@ function object(value: unknown): Record<string, unknown> {
 
 function text(value: unknown): string | undefined {
   return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+function strings(value: unknown): string[] | undefined {
+  return Array.isArray(value)
+    ? value.filter((each): each is string => typeof each === "string")
+    : undefined;
 }

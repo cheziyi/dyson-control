@@ -53,6 +53,91 @@ export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_AUTO_MODE: readonly string[] = [
   "960",
 ];
 
+/** The types that have no continuous monitoring, and so no `rhtm`. */
+export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING: readonly string[] =
+  ["739", "960"];
+
+/** The types that heat the air, and so take a `heatMode` and a target
+ * temperature. */
+export const ENVIRONMENTAL_CARE_HEAT_TYPES: readonly string[] = [
+  "455",
+  "527",
+  "527E",
+  "527K",
+  "635",
+  "918",
+];
+
+/** The later types whose air blows forward or backward, and so take a
+ * `fanAirDirection`. One whose type and variant join to an excluded name
+ * carries none. */
+export const ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_TYPES: readonly string[] = [
+  "358",
+  "358E",
+  "358K",
+  "438",
+  "438E",
+  "438K",
+  "520",
+  "527",
+  "527E",
+  "527K",
+];
+
+/** The joined type and variant names, such as `438M`, whose machines carry
+ * no `fanAirDirection`. */
+export const ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_EXCLUDED_VARIANTS: readonly string[] =
+  ["438M", "527M"];
+
+/** The types that humidify to a target set by hand, and so take a
+ * `humidificationMode` and a `manualHumidificationTargetInPercent`. */
+export const ENVIRONMENTAL_CARE_HUMIDIFICATION_TYPES: readonly string[] = [
+  "358",
+  "358E",
+  "358K",
+  "965",
+];
+
+/** The types that pick the humidification target themselves, and so take an
+ * `autoHumidification`. */
+export const ENVIRONMENTAL_CARE_AUTO_HUMIDIFICATION_TYPES: readonly string[] = [
+  "358",
+  "358E",
+  "358K",
+];
+
+/** The types whose oscillation turns to a preset angle of 45 or 90 degrees,
+ * or breezes, instead of sweeping. */
+export const ENVIRONMENTAL_CARE_BARREL_OSCILLATION_TYPES: readonly string[] = [
+  "358",
+  "358E",
+  "358K",
+];
+
+/** The types whose oscillation tilts the machine on its axis. */
+export const ENVIRONMENTAL_CARE_TILT_OSCILLATION_TYPES: readonly string[] = [
+  "664",
+];
+
+/** The types that carry no plain on-and-off oscillation. */
+export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION: readonly string[] =
+  ["664", "897", "965"];
+
+/** The types that carry no oscillation with settable angles, whatever their
+ * capabilities report. */
+export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION: readonly string[] =
+  ["358", "358E", "358K", "664", "965", "997", "1018"];
+
+/** The capabilities of the cloud's manifest whose presence says a later
+ * type's oscillation sweeps between settable angles. */
+export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_CAPABILITIES: readonly string[] =
+  ["AdvanceOscillationDay0", "AdvanceOscillationDay1"];
+
+/** The types that have no air quality sensor, and so report no air quality
+ * readings. */
+export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR: readonly string[] =
+  ["739", "960"];
+
 /** `msg` of a message sent to a machine. */
 export const ENVIRONMENTAL_CARE_COMMANDS = {
   requestCurrentState: "REQUEST-CURRENT-STATE",
