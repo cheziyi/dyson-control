@@ -12,7 +12,13 @@ describe("getMachines", () => {
           serialNumber: "S-1",
           type: "438",
           category: "ec",
-          connectedConfiguration: { mqtt: { remoteBrokerType: "wss" } },
+          connectedConfiguration: {
+            mqtt: { remoteBrokerType: "wss" },
+            firmware: {
+              version: "1.2.3",
+              capabilities: ["AdvanceOscillationDay1"],
+            },
+          },
         },
         {
           serialNumber: "S-2",
@@ -28,6 +34,8 @@ describe("getMachines", () => {
         serialNumber: "S-1",
         type: "438",
         category: "environmentalCare",
+        firmwareVersion: "1.2.3",
+        capabilities: ["AdvanceOscillationDay1"],
         remoteBrokerType: "awsIot",
       },
       {

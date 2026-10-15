@@ -21,6 +21,7 @@ import {
 } from "./protocol/state.js";
 import {
   ENVIRONMENTAL_CARE_COMMANDS,
+  ENVIRONMENTAL_CARE_FIELDS,
   ENVIRONMENTAL_CARE_MESSAGES,
 } from "./protocol/tables.js";
 import {
@@ -45,8 +46,11 @@ export interface EnvironmentalCareClientOptions {
   retry?: DysonRetryOptions;
   /** Called with each state the machine sends while the client is
    * connected: one it sends by itself, changed or not, and its answer to a
-   * `getState`, this client's or another's. Nothing comes before `connect`
-   * or after `onDisconnect`. Defaults to doing nothing. */
+   * `getState`, this client's or another's. A machine of the first
+   * generation reports its sleep timer in the `data` of a sensors message
+   * and in no state message, so `onState` takes it from there. Nothing
+   * comes before `connect` or after `onDisconnect`. Defaults to doing
+   * nothing. */
   onState?: (state: EnvironmentalCareState) => void;
   /** Called with each set of readings the machine sends while the client
    * is connected: its answer to a `getSensors`, this client's or another's,
@@ -76,6 +80,7 @@ export interface EnvironmentalCareClientOptions {
 export class EnvironmentalCareClient {
   private readonly link: MachineLink;
   private readonly type: EnvironmentalCareType;
+  private productState: Record<string, string> | undefined;
 
   /** It sends nothing. It throws an `Error` for a machine of another
    * category, and for one whose `type` is no known environmental care
@@ -180,7 +185,24 @@ export class EnvironmentalCareClient {
       this.options.onSensors?.(
         parseEnvironmentalCareSensors(parsed.values, this.type),
       );
+      // A machine of the first generation reports its sleep timer in the
+      // data of this message and in no state message. Its other fields are
+      // the last ones a state message carried, so none is read before one
+      // arrives.
+      if (
+        this.type.generation1 &&
+        parsed.values[ENVIRONMENTAL_CARE_FIELDS.sleepTimer] !== undefined &&
+        this.productState !== undefined
+      ) {
+        this.options.onState?.(
+          parseEnvironmentalCareState(
+            { ...this.productState, ...parsed.values },
+            this.type,
+          ),
+        );
+      }
     } else {
+      this.productState = parsed.values;
       this.options.onState?.(
         parseEnvironmentalCareState(parsed.values, this.type),
       );

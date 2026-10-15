@@ -121,8 +121,32 @@ this table:
 | `635`, `739`, `949`, `960` | Power, and no auto mode |
 
 A machine from `getMachines` also carries `remoteBrokerType`, and
-`mqttRootTopicLevel`, `category`, `name`, `variant`, `model`, `productName`
-and `firmwareVersion` when the cloud reports them.
+`mqttRootTopicLevel`, `category`, `name`, `variant`, `model`, `productName`,
+`firmwareVersion` and `capabilities` when the cloud reports them.
+
+### The controls a machine carries
+
+`parseEnvironmentalCareCapabilities(machine)` returns the controls a machine
+carries, from its `type`, `variant` and the `capabilities` the cloud reports
+for it. It asks the machine nothing, so a caller has an answer before
+connecting, and `undefined` for a type the table above does not name. Pair
+it with `getState()` and `getSensors()`: the capabilities say which controls
+to show, the state what each shows.
+
+| Field | Holds |
+| --- | --- |
+| `autoMode` | `true` when the machine picks the fan speed itself |
+| `continuousMonitoring` | `true` when the machine measures the air while it is off |
+| `heatModes` | `off` and `heat`, or an empty list for a machine that does not heat |
+| `fanAirDirections` | `forward` and `backward`, or an empty list for a machine that carries no air direction |
+| `humidificationModes` | `off` and `humidify`, or an empty list for a machine that does not humidify |
+| `autoHumidification` | `true` when the machine picks the target humidity itself |
+| `oscillation` | `basic`, an on and an off; `advanced`, settable angles; `barrel`, a preset angle or a breeze; `tilt`; or `none` |
+| `airQualitySensor` | `true` when the machine reports air quality readings |
+
+A list carries the values its control takes, so a machine that grows a mode
+needs no new field, and an empty list is a control the machine does not
+carry: a caller shows no row for it, and `setState` takes no field for it.
 
 ### State
 
@@ -149,6 +173,10 @@ reports none, so a fan without a heater reads `heatMode: null`.
 
 A field that holds a named mode, such as `heatMode`, is that mode and not
 `true` or `false`: a machine with a third mode then needs no new field.
+
+A machine of the first generation reports its sleep timer in the `data` of a
+sensors message and in no state message: `getState()` reads `null` for it,
+and `onState` carries it from a sensors message's data.
 
 `getSensors()` resolves with an `EnvironmentalCareSensors`, each reading
 `null` when the machine does not report it:

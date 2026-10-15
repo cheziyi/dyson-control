@@ -42,6 +42,9 @@ export interface DysonMachine {
   productName?: string;
   /** The machine's firmware, as the cloud last saw it. */
   firmwareVersion?: string;
+  /** The capability names the cloud reports for the machine, such as
+   * `AdvanceOscillationDay1`. Left out when the cloud reports no list. */
+  capabilities?: string[];
   /** Left out means `awsIot`. */
   remoteBrokerType?: RemoteBrokerType;
 }
