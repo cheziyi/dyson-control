@@ -96,8 +96,9 @@ other categories yet.
 | `environmentalCare` | A purifier, fan, heater or humidifier |
 | `robot`, `lighting`, `wearableEnvironmentalCare`, `hairCare`, `floorCare`, `formulation`, `oralCare` | Listed when the broker reaches it, and not controlled |
 
-Key a stored machine on `serialNumber`. Write the machine by hand when you
-already know it, and skip `getMachines`:
+Key a stored machine on `serialNumber`, and store every field `getMachines`
+gave it. Write the machine by hand when you already know it, and skip
+`getMachines`:
 
 ```ts
 import { EnvironmentalCareClient, type DysonMachine } from "dyson-control";
@@ -108,6 +109,10 @@ const machine: DysonMachine = {
 };
 const client = new EnvironmentalCareClient(machine, { account });
 ```
+
+A machine of `serialNumber` and `type` alone connects, but its
+[capabilities](#capabilities) read as those of a machine without a variant
+or firmware capabilities.
 
 `type` is the cloud's code for the kind of machine, such as `438`, as
 `getMachines` reports it. It tells the client how the machine holds its
@@ -122,31 +127,28 @@ this table:
 
 A machine from `getMachines` also carries `remoteBrokerType`, and
 `mqttRootTopicLevel`, `category`, `name`, `variant`, `model`, `productName`,
-`firmwareVersion` and `capabilities` when the cloud reports them.
+`firmwareVersion` and `firmwareCapabilities` when the cloud reports them.
 
-### The controls a machine carries
+### Capabilities
 
-`parseEnvironmentalCareCapabilities(machine)` returns the controls a machine
-carries, from its `type`, `variant` and the `capabilities` the cloud reports
-for it. It asks the machine nothing, so a caller has an answer before
-connecting, and `undefined` for a type the table above does not name. Pair
-it with `getState()` and `getSensors()`: the capabilities say which controls
-to show, the state what each shows.
+`client.capabilities` says which fields of `setState()` the machine takes.
+It is read from the machine's `type`, `variant` and `firmwareCapabilities`,
+without asking the machine, so it answers before `connect()`. Show a control
+only where it says the machine takes it: `setState()` rejects the rest.
 
 | Field | Holds |
 | --- | --- |
-| `autoMode` | `true` when the machine picks the fan speed itself |
-| `continuousMonitoring` | `true` when the machine measures the air while it is off |
-| `heatModes` | `off` and `heat`, or an empty list for a machine that does not heat |
-| `fanAirDirections` | `forward` and `backward`, or an empty list for a machine that carries no air direction |
-| `humidificationModes` | `off` and `humidify`, or an empty list for a machine that does not humidify |
-| `autoHumidification` | `true` when the machine picks the target humidity itself |
-| `oscillation` | `basic`, an on and an off; `advanced`, settable angles; `barrel`, a preset angle or a breeze; `tilt`; or `none` |
-| `airQualitySensor` | `true` when the machine reports air quality readings |
+| `autoMode`, `continuousMonitoring`, `autoHumidification` | `true` when the machine takes the field of that name |
+| `heatModes` | `off` and `heat` for a machine that also takes `targetTemperatureInC`, or an empty list |
+| `fanAirDirections` | `forward` and `backward`, or an empty list |
+| `humidificationModes` | `off` and `humidify` for a machine that also takes `manualHumidificationTargetInPercent`, or an empty list |
+| `oscillation` | `basic`, on and off; `advanced`, between two angles as well; `barrel`, to a preset angle or a breeze; `tilt`, on the machine's axis; or `none` |
+| `oscillationAngles` | `true` when the machine takes any two angles |
+| `oscillationPresetAnglesInDegrees` | The preset angles an `advanced` machine without `oscillationAngles` takes, such as `45` and `90`, and a `barrel` machine's `45`, `90` and `breeze`; or an empty list |
+| `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
 
-A list carries the values its control takes, so a machine that grows a mode
-needs no new field, and an empty list is a control the machine does not
-carry: a caller shows no row for it, and `setState` takes no field for it.
+`setState()` writes `oscillationMode` to every oscillation but `tilt`. Write
+a tilt through [the machine's own fields](#the-machines-own-fields).
 
 ### State
 
@@ -161,9 +163,10 @@ reports none, so a fan without a heater reads `heatMode: null`.
 | `fanSpeed` | `1` to `10`, and `null` while the machine reports `AUTO`, as it does in auto mode |
 | `oscillationMode` | `off`, `on`, `idleOff`, `idleOn` or `scan` |
 | `oscillationAngles` | `{ lowerInDegrees, upperInDegrees }` |
+| `oscillationPresetAngleInDegrees` | `15` to `350`, `breeze`, or `custom` while the machine oscillates between its `oscillationAngles` |
 | `nightMode` | `true` or `false` |
 | `continuousMonitoring` | Whether the machine measures the air while it is off |
-| `sleepTimerInMinutes` | The minutes left, or `off` |
+| `sleepTimerInMinutes` | The minutes left, or `off`. A machine of the first generation reports it in `getSensors()` |
 | `fanAirDirection` | `forward` or `backward` |
 | `heatMode` | `off` or `heat` |
 | `targetTemperatureInC` | The temperature `heatMode` holds the room at |
@@ -173,10 +176,6 @@ reports none, so a fan without a heater reads `heatMode: null`.
 
 A field that holds a named mode, such as `heatMode`, is that mode and not
 `true` or `false`: a machine with a third mode then needs no new field.
-
-A machine of the first generation reports its sleep timer in the `data` of a
-sensors message and in no state message: `getState()` reads `null` for it,
-and `onState` carries it from a sensors message's data.
 
 `getSensors()` resolves with an `EnvironmentalCareSensors`, each reading
 `null` when the machine does not report it:
@@ -188,6 +187,7 @@ and `onState` carries it from a sensors message's data.
 | `formaldehydeInUgPerM3` | Formaldehyde, in μg/m³ |
 | `carbonDioxideInPpm` | Carbon dioxide, in parts per million |
 | `pm25Index`, `pm10Index`, `volatileOrganicCompoundsIndex`, `nitrogenDioxideIndex`, `formaldehydeIndex`, `carbonDioxideIndex` | The machine's own index for each pollutant, which has no unit |
+| `sleepTimerInMinutes` | The sleep timer of a machine of the first generation, as `EnvironmentalCareState` holds a later one's |
 
 An index says how clean the air is, on one scale for every pollutant:
 
@@ -216,7 +216,7 @@ await client.setState({ sleepTimerInMinutes: 30 });
 
 | It | So |
 | --- | --- |
-| Sends every field as given, whether or not the machine has the feature | Check the field is not `null` in `getState()` first |
+| Rejects with an `Error`, and sends nothing, for a field or a value [`client.capabilities`](#capabilities) says the machine does not take | Write the machine's own fields to send it anyway |
 | Resolves once the broker has the command, not once the machine has acted | Call `getState()` to read what the machine did |
 | Switches the machine on with an `autoMode` or a `fanSpeed` | Pass `fanPower: false` with it to leave the machine off |
 | Switches auto mode off with a `fanSpeed` | Pass `autoMode: true` with it to keep auto mode |

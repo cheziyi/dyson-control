@@ -31,6 +31,22 @@ export const HUMIDIFICATION_MODES = ["off", "humidify"] as const;
 
 export type HumidificationMode = (typeof HUMIDIFICATION_MODES)[number];
 
+export const OSCILLATION_PRESET_ANGLES = [
+  15,
+  40,
+  45,
+  70,
+  90,
+  180,
+  350,
+  "breeze",
+  "custom",
+] as const;
+
+/** The angle a machine oscillates through, in degrees, or a breeze.
+ * `custom` is a machine oscillating between its `oscillationAngles`. */
+export type OscillationPresetAngle = (typeof OSCILLATION_PRESET_ANGLES)[number];
+
 /** The two ends a machine oscillates between, each in degrees. */
 export interface OscillationAngles {
   lowerInDegrees: number;
@@ -49,10 +65,13 @@ export interface EnvironmentalCareState {
   fanSpeed: FanSpeed | null;
   oscillationMode: OscillationMode | null;
   oscillationAngles: OscillationAngles | null;
+  oscillationPresetAngleInDegrees: OscillationPresetAngle | null;
   nightMode: boolean | null;
   /** Whether the machine keeps measuring the air while it is off. */
   continuousMonitoring: boolean | null;
-  /** The minutes left until the machine switches itself off, or `off`. */
+  /** The minutes left until the machine switches itself off, or `off`. A
+   * machine of the first generation reports it in
+   * `EnvironmentalCareSensors.sleepTimerInMinutes`. */
   sleepTimerInMinutes: number | "off" | null;
   fanAirDirection: FanAirDirection | null;
   heatMode: HeatMode | null;
@@ -66,8 +85,8 @@ export interface EnvironmentalCareState {
 
 /** A partial `EnvironmentalCareState`, as
  * `EnvironmentalCareClient.setState` takes it: set only the fields to
- * change. The client sends each field as given, whether or not the machine
- * has the feature. */
+ * change, and only those `EnvironmentalCareClient.capabilities` says the
+ * machine takes. */
 export type EnvironmentalCareControl = {
   [Field in keyof EnvironmentalCareState]?: NonNullable<
     EnvironmentalCareState[Field]
@@ -92,4 +111,7 @@ export interface EnvironmentalCareSensors {
   formaldehydeIndex: number | null;
   carbonDioxideInPpm: number | null;
   carbonDioxideIndex: number | null;
+  /** A machine of the first generation reports its sleep timer here, and a
+   * later one in `EnvironmentalCareState.sleepTimerInMinutes`. */
+  sleepTimerInMinutes: number | "off" | null;
 }

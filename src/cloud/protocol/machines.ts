@@ -53,7 +53,7 @@ function parseMachine(entry: unknown): DysonMachine | undefined {
     model: text(fields.model),
     productName: text(fields.productName),
     firmwareVersion: text(firmware.version),
-    capabilities: strings(firmware.capabilities),
+    firmwareCapabilities: strings(firmware.capabilities),
   };
   // Without the keys of the fields the cloud left out.
   Object.assign(machine, JSON.parse(JSON.stringify(optional)));

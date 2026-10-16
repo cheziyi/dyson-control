@@ -4,11 +4,13 @@ import type { DysonRetryOptions } from "../cloud/transport.js";
 import { DysonError } from "../error.js";
 import { MachineLink } from "../machine/link.js";
 import type { MachineMessage } from "../machine/protocol/message.js";
+import type { EnvironmentalCareCapabilities } from "./models/capabilities.js";
 import type {
   EnvironmentalCareControl,
   EnvironmentalCareSensors,
   EnvironmentalCareState,
 } from "./models/state.js";
+import { decodeEnvironmentalCareCapabilities } from "./protocol/capabilities.js";
 import {
   buildEnvironmentalCareStateSet,
   type EnvironmentalCareMessageName,
@@ -21,7 +23,6 @@ import {
 } from "./protocol/state.js";
 import {
   ENVIRONMENTAL_CARE_COMMANDS,
-  ENVIRONMENTAL_CARE_FIELDS,
   ENVIRONMENTAL_CARE_MESSAGES,
 } from "./protocol/tables.js";
 import {
@@ -46,11 +47,8 @@ export interface EnvironmentalCareClientOptions {
   retry?: DysonRetryOptions;
   /** Called with each state the machine sends while the client is
    * connected: one it sends by itself, changed or not, and its answer to a
-   * `getState`, this client's or another's. A machine of the first
-   * generation reports its sleep timer in the `data` of a sensors message
-   * and in no state message, so `onState` takes it from there. Nothing
-   * comes before `connect` or after `onDisconnect`. Defaults to doing
-   * nothing. */
+   * `getState`, this client's or another's. Nothing comes before `connect`
+   * or after `onDisconnect`. Defaults to doing nothing. */
   onState?: (state: EnvironmentalCareState) => void;
   /** Called with each set of readings the machine sends while the client
    * is connected: its answer to a `getSensors`, this client's or another's,
@@ -78,9 +76,13 @@ export interface EnvironmentalCareClientOptions {
  * dropped connection, and with status 503 when the client is not
  * connected. */
 export class EnvironmentalCareClient {
+  /** Which fields of `setState` the machine takes, read from its `type`,
+   * `variant` and `firmwareCapabilities` without asking the machine. A
+   * machine written by hand without the last two reads as a machine of its
+   * type that has neither. */
+  readonly capabilities: EnvironmentalCareCapabilities;
   private readonly link: MachineLink;
   private readonly type: EnvironmentalCareType;
-  private productState: Record<string, string> | undefined;
 
   /** It sends nothing. It throws an `Error` for a machine of another
    * category, and for one whose `type` is no known environmental care
@@ -104,6 +106,7 @@ export class EnvironmentalCareClient {
       );
     }
     this.type = type;
+    this.capabilities = decodeEnvironmentalCareCapabilities(machine, type);
     this.link = new MachineLink(machine, {
       ...options,
       onMessage: (message) => this.receive(message),
@@ -132,18 +135,29 @@ export class EnvironmentalCareClient {
 
   /** Changes part of the state, with one command and without reading the
    * machine first. An `autoMode` or a `fanSpeed` also switches the machine
-   * on, and a `fanPower` of `false` its sleep timer off. It resolves once
-   * the broker has the command, not once the machine has acted on it:
-   * `getState` then tells. */
+   * on, and a `fanPower` of `false` its sleep timer off. It rejects with an
+   * `Error`, and sends nothing, for a field or a value `capabilities` says
+   * the machine does not take. It resolves once the broker has the command,
+   * not once the machine has acted on it: `getState` then tells. */
   async setState(control: EnvironmentalCareControl): Promise<void> {
-    const data = applyEnvironmentalCareControl(this.type, control);
+    const fields = fieldsNotTaken(this.capabilities, control);
+    if (fields.length > 0) {
+      throw new Error(
+        `The machine takes no ${fields.join(", ")}: see EnvironmentalCareClient.capabilities`,
+      );
+    }
+    const data = applyEnvironmentalCareControl(
+      this.type,
+      this.capabilities,
+      control,
+    );
     if (Object.keys(data).length > 0) {
       await this.setProductState(data);
     }
   }
 
   /** Asks the machine for its temperature, humidity and air quality
-   * readings. */
+   * readings, and the sleep timer of a machine of the first generation. */
   async getSensors(): Promise<EnvironmentalCareSensors> {
     return parseEnvironmentalCareSensors(
       await this.request(
@@ -185,24 +199,7 @@ export class EnvironmentalCareClient {
       this.options.onSensors?.(
         parseEnvironmentalCareSensors(parsed.values, this.type),
       );
-      // A machine of the first generation reports its sleep timer in the
-      // data of this message and in no state message. Its other fields are
-      // the last ones a state message carried, so none is read before one
-      // arrives.
-      if (
-        this.type.generation1 &&
-        parsed.values[ENVIRONMENTAL_CARE_FIELDS.sleepTimer] !== undefined &&
-        this.productState !== undefined
-      ) {
-        this.options.onState?.(
-          parseEnvironmentalCareState(
-            { ...this.productState, ...parsed.values },
-            this.type,
-          ),
-        );
-      }
     } else {
-      this.productState = parsed.values;
       this.options.onState?.(
         parseEnvironmentalCareState(parsed.values, this.type),
       );
@@ -221,4 +218,43 @@ export class EnvironmentalCareClient {
     }
     return message.values;
   }
+}
+
+// Each field the capabilities leave out is one every machine takes.
+function fieldsNotTaken(
+  capabilities: EnvironmentalCareCapabilities,
+  control: EnvironmentalCareControl,
+): (keyof EnvironmentalCareControl)[] {
+  const takes = <ValueT>(
+    values: readonly ValueT[],
+    value: ValueT | undefined,
+  ) => value === undefined || values.includes(value);
+  const taken: { [Field in keyof EnvironmentalCareControl]?: boolean } = {
+    autoMode: capabilities.autoMode,
+    oscillationMode:
+      capabilities.oscillation !== "none" &&
+      capabilities.oscillation !== "tilt",
+    oscillationAngles: capabilities.oscillationAngles,
+    oscillationPresetAngleInDegrees: takes(
+      capabilities.oscillationPresetAnglesInDegrees,
+      control.oscillationPresetAngleInDegrees,
+    ),
+    continuousMonitoring: capabilities.continuousMonitoring,
+    fanAirDirection: takes(
+      capabilities.fanAirDirections,
+      control.fanAirDirection,
+    ),
+    heatMode: takes(capabilities.heatModes, control.heatMode),
+    targetTemperatureInC: capabilities.heatModes.length > 0,
+    humidificationMode: takes(
+      capabilities.humidificationModes,
+      control.humidificationMode,
+    ),
+    autoHumidification: capabilities.autoHumidification,
+    manualHumidificationTargetInPercent:
+      capabilities.humidificationModes.length > 0,
+  };
+  return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).filter(
+    (field) => control[field] !== undefined && taken[field] === false,
+  );
 }
