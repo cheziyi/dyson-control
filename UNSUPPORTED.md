@@ -31,3 +31,4 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | What a machine means by an `oscs` of `INV`, `INIT`, `ACS`, `ACM` or `NOD`, the state of its oscillation beside `oson` | `EnvironmentalCareState` holds no oscillation state |
 | What a machine means by a `sost` of `ACS`, `ACM` or `NOD`, the state of find and follow | `setState` takes no find and follow |
 | The unit of `cdrr`, which a machine reports while it runs a clean cycle | `EnvironmentalCareState` holds no clean cycle |
+| What a machine means by an `ancp` of `SMRT` | `oscillationPresetAngleInDegrees` reads it as `null` |

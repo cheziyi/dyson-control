@@ -134,7 +134,7 @@ A machine from `getMachines` also carries `remoteBrokerType`, and
 `client.capabilities` says which fields of `setState()` the machine takes.
 It is read from the machine's `type`, `variant` and `firmwareCapabilities`,
 without asking the machine, so it answers before `connect()`. Show a control
-only where it says the machine takes it:
+only where it says the machine takes it: `setState()` rejects the rest.
 
 | Field | Holds |
 | --- | --- |
@@ -143,13 +143,12 @@ only where it says the machine takes it:
 | `fanAirDirections` | `forward` and `backward`, or an empty list |
 | `humidificationModes` | `off` and `humidify` for a machine that also takes `manualHumidificationTargetInPercent`, or an empty list |
 | `oscillation` | `basic`, on and off; `advanced`, between two angles as well; `barrel`, to a preset angle or a breeze; `tilt`, on the machine's axis; or `none` |
-| `oscillationAngles` | `true` when the machine takes any two angles. An `advanced` machine without it takes a preset angle alone |
+| `oscillationAngles` | `true` when the machine takes any two angles |
+| `oscillationPresetAnglesInDegrees` | The preset angles an `advanced` machine without `oscillationAngles` takes, such as `45` and `90`, and a `barrel` machine's `45`, `90` and `breeze`; or an empty list |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
 
-`setState()` writes `oscillationMode` to a `basic`, `advanced` or `barrel`
-oscillation, and `oscillationAngles` where `capabilities.oscillationAngles`
-is `true`. Write a preset angle, a barrel's angle and a tilt through
-[the machine's own fields](#the-machines-own-fields).
+`setState()` writes `oscillationMode` to every oscillation but `tilt`. Write
+a tilt through [the machine's own fields](#the-machines-own-fields).
 
 ### State
 
@@ -164,6 +163,7 @@ reports none, so a fan without a heater reads `heatMode: null`.
 | `fanSpeed` | `1` to `10`, and `null` while the machine reports `AUTO`, as it does in auto mode |
 | `oscillationMode` | `off`, `on`, `idleOff`, `idleOn` or `scan` |
 | `oscillationAngles` | `{ lowerInDegrees, upperInDegrees }` |
+| `oscillationPresetAngleInDegrees` | `15` to `350`, `breeze`, or `custom` while the machine oscillates between its `oscillationAngles` |
 | `nightMode` | `true` or `false` |
 | `continuousMonitoring` | Whether the machine measures the air while it is off |
 | `sleepTimerInMinutes` | The minutes left, or `off`. A machine of the first generation reports it in `getSensors()` |
@@ -216,7 +216,7 @@ await client.setState({ sleepTimerInMinutes: 30 });
 
 | It | So |
 | --- | --- |
-| Sends every field as given, whether or not the machine takes it | Check [`client.capabilities`](#capabilities) first |
+| Rejects with an `Error`, and sends nothing, for a field or a value [`client.capabilities`](#capabilities) says the machine does not take | Write the machine's own fields to send it anyway |
 | Resolves once the broker has the command, not once the machine has acted | Call `getState()` to read what the machine did |
 | Switches the machine on with an `autoMode` or a `fanSpeed` | Pass `fanPower: false` with it to leave the machine off |
 | Switches auto mode off with a `fanSpeed` | Pass `autoMode: true` with it to keep auto mode |

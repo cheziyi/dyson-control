@@ -40,7 +40,9 @@ export {
   HUMIDIFICATION_MODES,
   type HumidificationMode,
   OSCILLATION_MODES,
+  OSCILLATION_PRESET_ANGLES,
   type OscillationAngles,
   type OscillationMode,
+  type OscillationPresetAngle,
 } from "./environmentalCare/models/state.js";
 export { DysonConnectionError, DysonError } from "./error.js";

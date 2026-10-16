@@ -13,6 +13,7 @@ describe("the package", () => {
       "HUMIDIFICATION_MODES",
       "MACHINE_CATEGORIES",
       "OSCILLATION_MODES",
+      "OSCILLATION_PRESET_ANGLES",
       "REMOTE_BROKER_TYPES",
       "getCountries",
       "getMachines",

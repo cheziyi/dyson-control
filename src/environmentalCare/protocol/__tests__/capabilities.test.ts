@@ -28,14 +28,19 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       autoHumidification: false,
       oscillation: "advanced",
       oscillationAngles: true,
+      oscillationPresetAnglesInDegrees: [],
       hasAirQualitySensor: true,
     });
   });
 
-  it("takes no two angles from a firmware that takes a preset angle alone", () => {
+  it("reads preset angles alone from a firmware that takes no two angles", () => {
     expect(decode({ type: "438", firmwareCapabilities: DAY_0 })).toMatchObject({
       oscillation: "advanced",
       oscillationAngles: false,
+      oscillationPresetAnglesInDegrees: [45, 90, 180, 350],
+    });
+    expect(decode({ type: "635", firmwareCapabilities: DAY_0 })).toMatchObject({
+      oscillationPresetAnglesInDegrees: [15, 40, 70],
     });
   });
 
@@ -44,6 +49,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       expect(decode({ type: "438", firmwareCapabilities })).toMatchObject({
         oscillation: "basic",
         oscillationAngles: false,
+        oscillationPresetAnglesInDegrees: [],
       });
     }
   });
@@ -67,6 +73,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       autoHumidification: true,
       oscillation: "barrel",
       oscillationAngles: false,
+      oscillationPresetAnglesInDegrees: [45, 90, "breeze"],
       hasAirQualitySensor: true,
     });
   });

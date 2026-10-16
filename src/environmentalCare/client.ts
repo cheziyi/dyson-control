@@ -135,11 +135,22 @@ export class EnvironmentalCareClient {
 
   /** Changes part of the state, with one command and without reading the
    * machine first. An `autoMode` or a `fanSpeed` also switches the machine
-   * on, and a `fanPower` of `false` its sleep timer off. It resolves once
-   * the broker has the command, not once the machine has acted on it:
-   * `getState` then tells. */
+   * on, and a `fanPower` of `false` its sleep timer off. It rejects with an
+   * `Error`, and sends nothing, for a field or a value `capabilities` says
+   * the machine does not take. It resolves once the broker has the command,
+   * not once the machine has acted on it: `getState` then tells. */
   async setState(control: EnvironmentalCareControl): Promise<void> {
-    const data = applyEnvironmentalCareControl(this.type, control);
+    const fields = fieldsNotTaken(this.capabilities, control);
+    if (fields.length > 0) {
+      throw new Error(
+        `The machine takes no ${fields.join(", ")}: see EnvironmentalCareClient.capabilities`,
+      );
+    }
+    const data = applyEnvironmentalCareControl(
+      this.type,
+      this.capabilities,
+      control,
+    );
     if (Object.keys(data).length > 0) {
       await this.setProductState(data);
     }
@@ -207,4 +218,43 @@ export class EnvironmentalCareClient {
     }
     return message.values;
   }
+}
+
+// Each field the capabilities leave out is one every machine takes.
+function fieldsNotTaken(
+  capabilities: EnvironmentalCareCapabilities,
+  control: EnvironmentalCareControl,
+): (keyof EnvironmentalCareControl)[] {
+  const takes = <ValueT>(
+    values: readonly ValueT[],
+    value: ValueT | undefined,
+  ) => value === undefined || values.includes(value);
+  const taken: { [Field in keyof EnvironmentalCareControl]?: boolean } = {
+    autoMode: capabilities.autoMode,
+    oscillationMode:
+      capabilities.oscillation !== "none" &&
+      capabilities.oscillation !== "tilt",
+    oscillationAngles: capabilities.oscillationAngles,
+    oscillationPresetAngleInDegrees: takes(
+      capabilities.oscillationPresetAnglesInDegrees,
+      control.oscillationPresetAngleInDegrees,
+    ),
+    continuousMonitoring: capabilities.continuousMonitoring,
+    fanAirDirection: takes(
+      capabilities.fanAirDirections,
+      control.fanAirDirection,
+    ),
+    heatMode: takes(capabilities.heatModes, control.heatMode),
+    targetTemperatureInC: capabilities.heatModes.length > 0,
+    humidificationMode: takes(
+      capabilities.humidificationModes,
+      control.humidificationMode,
+    ),
+    autoHumidification: capabilities.autoHumidification,
+    manualHumidificationTargetInPercent:
+      capabilities.humidificationModes.length > 0,
+  };
+  return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).filter(
+    (field) => control[field] !== undefined && taken[field] === false,
+  );
 }

@@ -3,6 +3,7 @@ import type {
   HeatMode,
   HumidificationMode,
   OscillationMode,
+  OscillationPresetAngle,
 } from "../models/state.js";
 
 // The types, messages, fields and codes of an environmental care machine.
@@ -85,10 +86,25 @@ export const ENVIRONMENTAL_CARE_TYPES_WITH_HUMIDIFICATION_MODE: readonly string[
 export const ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION: readonly string[] =
   ["358", "358E", "358K"];
 
-/** The types that turn to a preset angle of 45 or 90 degrees, or breeze,
- * through `ancp`. */
 export const ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION: readonly string[] =
   ["358", "358E", "358K"];
+
+export const ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES: readonly OscillationPresetAngle[] =
+  [45, 90, "breeze"];
+
+/** The preset angles of an advanced oscillation whose firmware takes no two
+ * angles of its own. */
+export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES: readonly OscillationPresetAngle[] =
+  [45, 90, 180, 350];
+
+/** The preset angles of an advanced oscillation in place of
+ * `ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES`, for the types in
+ * `ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION_PRESET_ANGLES`. */
+export const ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES: readonly OscillationPresetAngle[] =
+  [15, 40, 70];
+
+export const ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION_PRESET_ANGLES: readonly string[] =
+  ["635", "739"];
 
 /** The types that tilt on their axis, through `oton` in place of `oson`. */
 export const ENVIRONMENTAL_CARE_TYPES_WITH_TILT_OSCILLATION: readonly string[] =
@@ -221,8 +237,13 @@ export const ENVIRONMENTAL_CARE_HUMIDIFICATION_MODE_CODES: Readonly<
   humidify: "HUMD",
 };
 
-/** `oscillationPresetAngle` for the two angles a write sets. */
-export const ENVIRONMENTAL_CARE_CUSTOM_OSCILLATION_PRESET_ANGLE = "CUST";
+/** The codes of `oscillationPresetAngle` that are no angle. An angle's code
+ * is its degrees, in four digits: `0045`. `custom` is the code a write of
+ * `oscillationAngles` sends with them. */
+export const ENVIRONMENTAL_CARE_OSCILLATION_PRESET_ANGLE_CODES = {
+  breeze: "BRZE",
+  custom: "CUST",
+} as const;
 
 /** What a temperature in tenths of a kelvin is off from tenths of a degree
  * Celsius by. */

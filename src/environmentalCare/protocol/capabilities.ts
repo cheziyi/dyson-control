@@ -7,17 +7,23 @@ import {
   FAN_AIR_DIRECTIONS,
   HEAT_MODES,
   HUMIDIFICATION_MODES,
+  type OscillationPresetAngle,
 } from "../models/state.js";
 import {
+  ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES,
+  ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES,
+  ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION,
   ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION,
   ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE,
   ENVIRONMENTAL_CARE_TYPES_WITH_HUMIDIFICATION_MODE,
+  ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_TYPES_WITH_TILT_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR,
+  ENVIRONMENTAL_CARE_TYPES_WITHOUT_AUTO_MODE,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING,
   ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION,
@@ -34,8 +40,15 @@ export function decodeEnvironmentalCareCapabilities(
     type,
     firmwareCapabilities,
   );
+  const oscillationAngles =
+    oscillation === "advanced" &&
+    firmwareCapabilities.includes(
+      ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES.advanceOscillationDay1,
+    );
   return {
-    autoMode: type.hasAutoMode,
+    autoMode:
+      type.generation1 ||
+      !ENVIRONMENTAL_CARE_TYPES_WITHOUT_AUTO_MODE.includes(machine.type),
     continuousMonitoring:
       !ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING.includes(
         machine.type,
@@ -57,11 +70,14 @@ export function decodeEnvironmentalCareCapabilities(
     autoHumidification:
       ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION.includes(machine.type),
     oscillation,
-    oscillationAngles:
-      oscillation === "advanced" &&
-      firmwareCapabilities.includes(
-        ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES.advanceOscillationDay1,
+    oscillationAngles,
+    oscillationPresetAnglesInDegrees: [
+      ...decodeOscillationPresetAngles(
+        machine.type,
+        oscillation,
+        oscillationAngles,
       ),
+    ],
     hasAirQualitySensor:
       !ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR.includes(
         machine.type,
@@ -100,4 +116,23 @@ function decodeOscillation(
   )
     ? "none"
     : "basic";
+}
+
+// A machine that takes any two angles takes a preset as two of them.
+function decodeOscillationPresetAngles(
+  machineType: string,
+  oscillation: OscillationKind,
+  oscillationAngles: boolean,
+): readonly OscillationPresetAngle[] {
+  if (oscillation === "barrel") {
+    return ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES;
+  }
+  if (oscillation !== "advanced" || oscillationAngles) {
+    return [];
+  }
+  return ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION_PRESET_ANGLES.includes(
+    machineType,
+  )
+    ? ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES
+    : ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES;
 }

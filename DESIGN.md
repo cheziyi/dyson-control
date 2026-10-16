@@ -143,10 +143,21 @@ first generation has no way to take one without it, since `fmod` is `FAN` or
 `AUTO` for a machine that is on, and the later types then behave alike. A
 `fanPower` of `false` also sends the sleep timer off, in the same command.
 
+`setState` rejects with an `Error`, and sends nothing, for a field or a value
+[`capabilities`](#capabilities) says the machine does not take.
+`setProductState` sends any field.
+
+Rejected: sending every field as given.
+
+- A machine ignores a field it does not take, and nothing reports that the
+  write did nothing.
+- A machine whose firmware takes no two angles takes a preset in `ancp`
+  alone, so an `oscillationAngles` sent to it changed nothing.
+
 Not built: skipping a write of a value the machine already reports.
 
 - The client holds no state to compare with, so it sends every field it is
-  given.
+  given that the machine takes.
 
 Not built: `hmod` `OFF` with a power on, for a heater whose serial number is
 a US one.

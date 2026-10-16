@@ -158,6 +158,38 @@ describe("EnvironmentalCareClient", () => {
       });
     });
 
+    it("rejects, and sends nothing, for a field or a value the machine does not take", async () => {
+      const purifier = await connected();
+
+      await expect(
+        purifier.setState({ fanSpeed: 3, heatMode: "heat" }),
+      ).rejects.toThrow(
+        "The machine takes no heatMode: see EnvironmentalCareClient.capabilities",
+      );
+      await expect(
+        purifier.setState({ oscillationPresetAngleInDegrees: 45 }),
+      ).rejects.toThrow("The machine takes no oscillationPresetAngleInDegrees");
+      expect(mock.broker.published).toEqual([]);
+    });
+
+    it("writes a preset angle to a machine whose firmware takes no two angles", async () => {
+      const purifier = await connected({
+        ...MACHINE,
+        firmwareCapabilities: ["AdvanceOscillationDay0"],
+      });
+
+      await expect(
+        purifier.setState({
+          oscillationAngles: { lowerInDegrees: 90, upperInDegrees: 180 },
+        }),
+      ).rejects.toThrow("The machine takes no oscillationAngles");
+      await purifier.setState({ oscillationPresetAngleInDegrees: 90 });
+
+      expect(mock.broker.published).toMatchObject([
+        { message: { msg: "STATE-SET", data: { ancp: "0090" } } },
+      ]);
+    });
+
     it("sends nothing for a control that sets nothing", async () => {
       await (await connected()).setState({});
 

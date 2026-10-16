@@ -1,12 +1,14 @@
+import type { EnvironmentalCareCapabilities } from "../models/capabilities.js";
 import {
   type EnvironmentalCareControl,
   type EnvironmentalCareSensors,
   type EnvironmentalCareState,
   FAN_SPEEDS,
   type FanSpeed,
+  OSCILLATION_PRESET_ANGLES,
+  type OscillationPresetAngle,
 } from "../models/state.js";
 import {
-  ENVIRONMENTAL_CARE_CUSTOM_OSCILLATION_PRESET_ANGLE,
   ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_CODES,
   ENVIRONMENTAL_CARE_FAN_MODE_CODES,
   ENVIRONMENTAL_CARE_FIELDS,
@@ -14,6 +16,7 @@ import {
   ENVIRONMENTAL_CARE_HUMIDIFICATION_MODE_CODES,
   ENVIRONMENTAL_CARE_KELVIN_OFFSETS,
   ENVIRONMENTAL_CARE_OSCILLATION_MODE_CODES,
+  ENVIRONMENTAL_CARE_OSCILLATION_PRESET_ANGLE_CODES,
   ENVIRONMENTAL_CARE_SENSOR_FIELDS,
   ENVIRONMENTAL_CARE_SWITCH_CODES,
 } from "./tables.js";
@@ -54,6 +57,12 @@ export function parseEnvironmentalCareState(
       lowerInDegrees === null || upperInDegrees === null
         ? null
         : { lowerInDegrees, upperInDegrees },
+    oscillationPresetAngleInDegrees:
+      OSCILLATION_PRESET_ANGLES.find(
+        (each) =>
+          encodeOscillationPresetAngle(each) ===
+          values[ENVIRONMENTAL_CARE_FIELDS.oscillationPresetAngle],
+      ) ?? null,
     nightMode: decodeSwitch(values[ENVIRONMENTAL_CARE_FIELDS.nightMode]),
     continuousMonitoring: decodeSwitch(
       values[ENVIRONMENTAL_CARE_FIELDS.continuousMonitoring],
@@ -93,6 +102,7 @@ export function parseEnvironmentalCareState(
  * its power and its auto mode in. */
 export function applyEnvironmentalCareControl(
   type: EnvironmentalCareType,
+  capabilities: EnvironmentalCareCapabilities,
   control: EnvironmentalCareControl,
 ): Record<string, string> {
   const data: Record<string, string> = {};
@@ -112,7 +122,7 @@ export function applyEnvironmentalCareControl(
   } else {
     set(ENVIRONMENTAL_CARE_FIELDS.fanPower, encodeSwitch(fanPower));
     // A type without an auto mode takes a fan speed alone.
-    if (control.autoMode !== undefined || type.hasAutoMode) {
+    if (capabilities.autoMode) {
       set(ENVIRONMENTAL_CARE_FIELDS.autoMode, encodeSwitch(autoMode));
     }
   }
@@ -132,7 +142,11 @@ export function applyEnvironmentalCareControl(
       control.oscillationAngles.upperInDegrees,
     );
     data[ENVIRONMENTAL_CARE_FIELDS.oscillationPresetAngle] =
-      ENVIRONMENTAL_CARE_CUSTOM_OSCILLATION_PRESET_ANGLE;
+      ENVIRONMENTAL_CARE_OSCILLATION_PRESET_ANGLE_CODES.custom;
+  }
+  if (control.oscillationPresetAngleInDegrees !== undefined) {
+    data[ENVIRONMENTAL_CARE_FIELDS.oscillationPresetAngle] =
+      encodeOscillationPresetAngle(control.oscillationPresetAngleInDegrees);
   }
   set(ENVIRONMENTAL_CARE_FIELDS.nightMode, encodeSwitch(control.nightMode));
   set(
@@ -219,6 +233,12 @@ function encodeFanMode(
   return fanPower === true || autoMode === false
     ? ENVIRONMENTAL_CARE_FAN_MODE_CODES.fan
     : undefined;
+}
+
+function encodeOscillationPresetAngle(angle: OscillationPresetAngle): string {
+  return typeof angle === "number"
+    ? encodeNumber(angle)
+    : ENVIRONMENTAL_CARE_OSCILLATION_PRESET_ANGLE_CODES[angle];
 }
 
 function decodeFanSpeed(value: string | undefined): FanSpeed | null {
