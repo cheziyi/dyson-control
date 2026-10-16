@@ -342,6 +342,7 @@ describe("parseEnvironmentalCareSensors", () => {
     formaldehydeIndex: null,
     carbonDioxideInPpm: null,
     carbonDioxideIndex: null,
+    sleepTimerInMinutes: null,
   };
 
   it("reads every reading", () => {
@@ -376,6 +377,7 @@ describe("parseEnvironmentalCareSensors", () => {
       formaldehydeIndex: 0.3,
       carbonDioxideInPpm: 612,
       carbonDioxideIndex: 1.2,
+      sleepTimerInMinutes: null,
     });
   });
 
@@ -396,5 +398,16 @@ describe("parseEnvironmentalCareSensors", () => {
       parseEnvironmentalCareSensors({ tact: "2950" }, GENERATION_1)
         .temperatureInC,
     ).toBe(22);
+  });
+
+  it("reads the sleep timer of the first generation", () => {
+    expect(
+      parseEnvironmentalCareSensors({ sltm: "0030" }, GENERATION_1)
+        .sleepTimerInMinutes,
+    ).toBe(30);
+    expect(
+      parseEnvironmentalCareSensors({ sltm: "OFF" }, GENERATION_1)
+        .sleepTimerInMinutes,
+    ).toBe("off");
   });
 });

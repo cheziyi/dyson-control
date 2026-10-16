@@ -57,9 +57,8 @@ export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_AUTO_MODE: readonly string[] = [
 export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING: readonly string[] =
   ["739", "960"];
 
-/** The types that heat the air, and so take a `heatMode` and a target
- * temperature. */
-export const ENVIRONMENTAL_CARE_HEAT_TYPES: readonly string[] = [
+/** The types that take a `heatMode` and a target temperature. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE: readonly string[] = [
   "455",
   "527",
   "527E",
@@ -68,75 +67,54 @@ export const ENVIRONMENTAL_CARE_HEAT_TYPES: readonly string[] = [
   "918",
 ];
 
-/** The later types whose air blows forward or backward, and so take a
- * `fanAirDirection`. One whose type and variant join to an excluded name
- * carries none. */
-export const ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_TYPES: readonly string[] = [
-  "358",
-  "358E",
-  "358K",
-  "438",
-  "438E",
-  "438K",
-  "520",
-  "527",
-  "527E",
-  "527K",
-];
+/** The types that take a `fanAirDirection`, unless their variant is in
+ * `ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION`. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION: readonly string[] =
+  ["358", "358E", "358K", "438", "438E", "438K", "520", "527", "527E", "527K"];
 
-/** The joined type and variant names, such as `438M`, whose machines carry
- * no `fanAirDirection`. */
-export const ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_EXCLUDED_VARIANTS: readonly string[] =
+/** Each a type and its variant joined, as Dyson names a variant: a `438` of
+ * variant `M` is a `438M`. */
+export const ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION: readonly string[] =
   ["438M", "527M"];
 
-/** The types that humidify to a target set by hand, and so take a
- * `humidificationMode` and a `manualHumidificationTargetInPercent`. */
-export const ENVIRONMENTAL_CARE_HUMIDIFICATION_TYPES: readonly string[] = [
-  "358",
-  "358E",
-  "358K",
-  "965",
-];
+/** The types that take a `humidificationMode` and a
+ * `manualHumidificationTargetInPercent`. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_HUMIDIFICATION_MODE: readonly string[] =
+  ["358", "358E", "358K", "965"];
 
-/** The types that pick the humidification target themselves, and so take an
- * `autoHumidification`. */
-export const ENVIRONMENTAL_CARE_AUTO_HUMIDIFICATION_TYPES: readonly string[] = [
-  "358",
-  "358E",
-  "358K",
-];
+export const ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION: readonly string[] =
+  ["358", "358E", "358K"];
 
-/** The types whose oscillation turns to a preset angle of 45 or 90 degrees,
- * or breezes, instead of sweeping. */
-export const ENVIRONMENTAL_CARE_BARREL_OSCILLATION_TYPES: readonly string[] = [
-  "358",
-  "358E",
-  "358K",
-];
+/** The types that turn to a preset angle of 45 or 90 degrees, or breeze,
+ * through `ancp`. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION: readonly string[] =
+  ["358", "358E", "358K"];
 
-/** The types whose oscillation tilts the machine on its axis. */
-export const ENVIRONMENTAL_CARE_TILT_OSCILLATION_TYPES: readonly string[] = [
-  "664",
-];
+/** The types that tilt on their axis, through `oton` in place of `oson`. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_TILT_OSCILLATION: readonly string[] =
+  ["664"];
 
-/** The types that carry no plain on-and-off oscillation. */
+/** Of the later types without a barrel or a tilt oscillation, those that
+ * do not oscillate on and off alone. */
 export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION: readonly string[] =
-  ["664", "897", "965"];
+  ["897", "965"];
 
-/** The types that carry no oscillation with settable angles, whatever their
- * capabilities report. */
+/** Of the later types without a barrel or a tilt oscillation, those that
+ * take no oscillation angles, whatever their firmware can do. */
 export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION: readonly string[] =
-  ["358", "358E", "358K", "664", "965", "997", "1018"];
+  ["965", "997", "1018"];
 
-/** The capabilities of the cloud's manifest whose presence says a later
- * type's oscillation sweeps between settable angles. */
-export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_CAPABILITIES: readonly string[] =
-  ["AdvanceOscillationDay0", "AdvanceOscillationDay1"];
-
-/** The types that have no air quality sensor, and so report no air quality
- * readings. */
 export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR: readonly string[] =
   ["739", "960"];
+
+/** What a machine's firmware can do, as the cloud names it. A later type
+ * with either oscillation capability takes oscillation angles: a preset in
+ * `ancp` with `advanceOscillationDay0` alone, and any two in `osal` and
+ * `osau` with `advanceOscillationDay1`. */
+export const ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES = {
+  advanceOscillationDay0: "AdvanceOscillationDay0",
+  advanceOscillationDay1: "AdvanceOscillationDay1",
+} as const;
 
 /** `msg` of a message sent to a machine. */
 export const ENVIRONMENTAL_CARE_COMMANDS = {
@@ -179,7 +157,8 @@ export const ENVIRONMENTAL_CARE_FIELDS = {
 
 /** The fields of the `data` of a sensors message. A high-resolution field is
  * a concentration: micrograms per cubic metre, or parts per million for
- * carbon dioxide. Every other pollutant field is an index, in tenths. */
+ * carbon dioxide. Every other pollutant field is an index, in tenths. A
+ * machine of the first generation reports its sleep timer here. */
 export const ENVIRONMENTAL_CARE_SENSOR_FIELDS = {
   temperature: "tact",
   humidity: "hact",
@@ -193,6 +172,7 @@ export const ENVIRONMENTAL_CARE_SENSOR_FIELDS = {
   highResolutionFormaldehyde: "hchr",
   carbonDioxide: "co2a",
   highResolutionCarbonDioxide: "co2r",
+  sleepTimer: "sltm",
 } as const;
 
 /** The codes of a field that is on or off: `fanPower`, `autoMode`,

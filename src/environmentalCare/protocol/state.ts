@@ -30,7 +30,6 @@ export function parseEnvironmentalCareState(
   const upperInDegrees = decodeNumber(
     values[ENVIRONMENTAL_CARE_FIELDS.oscillationUpperAngle],
   );
-  const sleepTimer = values[ENVIRONMENTAL_CARE_FIELDS.sleepTimer];
   return {
     ...(type.generation1
       ? {
@@ -59,10 +58,9 @@ export function parseEnvironmentalCareState(
     continuousMonitoring: decodeSwitch(
       values[ENVIRONMENTAL_CARE_FIELDS.continuousMonitoring],
     ),
-    sleepTimerInMinutes:
-      sleepTimer === ENVIRONMENTAL_CARE_SWITCH_CODES.off
-        ? "off"
-        : decodeNumber(sleepTimer),
+    sleepTimerInMinutes: decodeSleepTimer(
+      values[ENVIRONMENTAL_CARE_FIELDS.sleepTimer],
+    ),
     fanAirDirection: decodeCode(
       ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_CODES,
       values[ENVIRONMENTAL_CARE_FIELDS.fanAirDirection],
@@ -203,6 +201,7 @@ export function parseEnvironmentalCareSensors(
       values[fields.highResolutionCarbonDioxide],
     ),
     carbonDioxideIndex: decodeTenths(values[fields.carbonDioxide]),
+    sleepTimerInMinutes: decodeSleepTimer(values[fields.sleepTimer]),
   };
 }
 
@@ -250,6 +249,12 @@ function encodeSwitch(value: boolean | undefined): string | undefined {
   return value
     ? ENVIRONMENTAL_CARE_SWITCH_CODES.on
     : ENVIRONMENTAL_CARE_SWITCH_CODES.off;
+}
+
+function decodeSleepTimer(value: string | undefined): number | "off" | null {
+  return value === ENVIRONMENTAL_CARE_SWITCH_CODES.off
+    ? "off"
+    : decodeNumber(value);
 }
 
 function decodeNumber(value: string | undefined): number | null {

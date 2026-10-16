@@ -9,94 +9,95 @@ import {
   HUMIDIFICATION_MODES,
 } from "../models/state.js";
 import {
-  ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_CAPABILITIES,
-  ENVIRONMENTAL_CARE_AUTO_HUMIDIFICATION_TYPES,
-  ENVIRONMENTAL_CARE_BARREL_OSCILLATION_TYPES,
-  ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_EXCLUDED_VARIANTS,
-  ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_TYPES,
-  ENVIRONMENTAL_CARE_HEAT_TYPES,
-  ENVIRONMENTAL_CARE_HUMIDIFICATION_TYPES,
-  ENVIRONMENTAL_CARE_TILT_OSCILLATION_TYPES,
+  ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES,
+  ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION,
+  ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION,
+  ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION,
+  ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE,
+  ENVIRONMENTAL_CARE_TYPES_WITH_HUMIDIFICATION_MODE,
+  ENVIRONMENTAL_CARE_TYPES_WITH_TILT_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING,
+  ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION,
 } from "./tables.js";
-import { decodeEnvironmentalCareType } from "./type.js";
+import type { EnvironmentalCareType } from "./type.js";
 
-/** The controls a machine carries, from its type, variant and the
- * capabilities of the cloud's manifest. It resolves with `undefined` for a
- * machine whose type is no known environmental care machine's. */
-export function parseEnvironmentalCareCapabilities(
+export function decodeEnvironmentalCareCapabilities(
   machine: DysonMachine,
-): EnvironmentalCareCapabilities | undefined {
-  const type = decodeEnvironmentalCareType(machine.type);
-  if (type === undefined) {
-    return undefined;
-  }
-  const capabilities = machine.capabilities ?? [];
-  const advancedOscillationCapability =
-    ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_CAPABILITIES.some((each) =>
-      capabilities.includes(each),
-    );
-  let oscillation: OscillationKind;
-  if (type.generation1) {
-    oscillation = "basic";
-  } else if (
-    ENVIRONMENTAL_CARE_BARREL_OSCILLATION_TYPES.includes(machine.type)
-  ) {
-    oscillation = "barrel";
-  } else if (ENVIRONMENTAL_CARE_TILT_OSCILLATION_TYPES.includes(machine.type)) {
-    oscillation = "tilt";
-  } else if (
-    advancedOscillationCapability &&
-    !ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION.includes(
-      machine.type,
-    )
-  ) {
-    oscillation = "advanced";
-  } else if (
-    !advancedOscillationCapability &&
-    !ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION.includes(machine.type)
-  ) {
-    oscillation = "basic";
-  } else {
-    oscillation = "none";
-  }
+  type: EnvironmentalCareType,
+): EnvironmentalCareCapabilities {
+  const firmwareCapabilities = machine.firmwareCapabilities ?? [];
+  const oscillation = decodeOscillation(
+    machine.type,
+    type,
+    firmwareCapabilities,
+  );
   return {
     autoMode: type.hasAutoMode,
     continuousMonitoring:
       !ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING.includes(
         machine.type,
       ),
-    heatModes: ENVIRONMENTAL_CARE_HEAT_TYPES.includes(machine.type)
+    heatModes: ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE.includes(machine.type)
       ? [...HEAT_MODES]
       : [],
     fanAirDirections:
-      ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_TYPES.includes(machine.type) &&
-      !ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_EXCLUDED_VARIANTS.includes(
-        machineVariant(machine),
+      ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION.includes(machine.type) &&
+      !ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION.includes(
+        machine.type + (machine.variant ?? ""),
       )
         ? [...FAN_AIR_DIRECTIONS]
         : [],
-    humidificationModes: ENVIRONMENTAL_CARE_HUMIDIFICATION_TYPES.includes(
-      machine.type,
-    )
-      ? [...HUMIDIFICATION_MODES]
-      : [],
-    autoHumidification: ENVIRONMENTAL_CARE_AUTO_HUMIDIFICATION_TYPES.includes(
-      machine.type,
-    ),
+    humidificationModes:
+      ENVIRONMENTAL_CARE_TYPES_WITH_HUMIDIFICATION_MODE.includes(machine.type)
+        ? [...HUMIDIFICATION_MODES]
+        : [],
+    autoHumidification:
+      ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION.includes(machine.type),
     oscillation,
-    airQualitySensor:
+    oscillationAngles:
+      oscillation === "advanced" &&
+      firmwareCapabilities.includes(
+        ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES.advanceOscillationDay1,
+      ),
+    hasAirQualitySensor:
       !ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR.includes(
         machine.type,
       ),
   };
 }
 
-/** A machine's variant, as its type and variant joined: a `438` of variant
- * `M` is a `438M`. */
-function machineVariant(machine: DysonMachine): string {
-  return machine.type + (machine.variant ?? "");
+// A later type whose firmware gives it angles oscillates on and off through
+// them alone, so one that takes no angles then does not oscillate.
+function decodeOscillation(
+  machineType: string,
+  type: EnvironmentalCareType,
+  firmwareCapabilities: string[],
+): OscillationKind {
+  if (type.generation1) {
+    return "basic";
+  }
+  if (ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION.includes(machineType)) {
+    return "barrel";
+  }
+  if (ENVIRONMENTAL_CARE_TYPES_WITH_TILT_OSCILLATION.includes(machineType)) {
+    return "tilt";
+  }
+  const firmwareGivesAngles = Object.values(
+    ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES,
+  ).some((each) => firmwareCapabilities.includes(each));
+  if (firmwareGivesAngles) {
+    return ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION.includes(
+      machineType,
+    )
+      ? "none"
+      : "advanced";
+  }
+  return ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION.includes(
+    machineType,
+  )
+    ? "none"
+    : "basic";
 }

@@ -154,48 +154,54 @@ a US one.
 - The client has no region to go by: a caller passes `heatMode: "off"` with
   `fanPower: true`.
 
-## The controls a machine carries
+## Capabilities
 
-`parseEnvironmentalCareCapabilities` reads a machine's `type`, `variant` and
-the `capabilities` of the cloud's manifest into the controls it carries. A
-capability takes the shape of its control's setting: a boolean where the
-control's state is one, the modes or directions where the state is a mode or
-a direction, and the kind of oscillation where the control's own surface
-differs from machine to machine. An empty list, or a `none` oscillation, is
-a control the machine does not carry. It asks the machine nothing, and
-returns `undefined` for a type of no known machine.
+`EnvironmentalCareClient.capabilities` decodes what a machine carries from
+its `type`, `variant` and `firmwareCapabilities`. Each field is named for the
+`EnvironmentalCareState` field it governs, and holds a boolean or the values
+that field takes: a list leaves room for a machine that grows a mode, as a
+named mode does in [Names and modes](#names-and-modes).
 
-Rejected: taking the controls from the machine's state.
+Rejected: taking the capabilities from the machine's state.
 
 - One state says what the machine is doing, not what it carries: a field is
   absent when the control is off, when it does not apply to the mode, and
   when the machine has none, and one sample cannot tell the three apart.
-- A capability answers before the connection exists, and a state arrives
+- The capabilities answer before the connection exists, and a state arrives
   only from one.
 
 Rejected: one table keyed by type, each row a machine's whole set of
-controls.
+capabilities.
 
 - The set is no function of the type alone: the oscillation follows the
-  manifest's capabilities, and the air direction the variant.
+  firmware capabilities, and the air direction the variant.
 - A row for a type the package learns later would have to be written whole,
   where the tables take each new fact as one list.
 
-The tables are control-first: each holds the machines one control's gate
-answers for, and the function composes them with the variant joined to the
-type (`438` of variant `M` is `438M`) and the manifest's capabilities.
+Rejected: `parseEnvironmentalCareCapabilities`, a function exported beside
+the client.
+
+- It was a `protocol/` function, which [Exports](#exports) keeps inside the
+  package.
+- It returned `undefined` for a type the client's constructor throws for, so
+  a caller checked the type twice.
 
 ## State as the machine reports it
 
 A client passes each state and each set of readings the machine sends on to
-the `onState` and `onSensors` a caller gives it, and holds none of it but
-the fields of the last state message. A machine sends a `STATE-CHANGE` by
-itself, and answers a request on the one topic every client receives from,
-so a state comes whether this client asked for it, another did, or none. A
-machine of the first generation reports its sleep timer in the `data` of a
-sensors message and in no state message, so the client merges the fields of
-the sensors message into them and passes the state on; before the first
-state message it passes none.
+the `onState` and `onSensors` a caller gives it, and holds none of it. A
+machine sends a `STATE-CHANGE` by itself, and answers a request on the one
+topic every client receives from, so a state comes whether this client asked
+for it, another did, or none. A machine of the first generation reports its
+sleep timer in a sensors message, so `EnvironmentalCareSensors` carries it.
+
+Rejected: merging the sleep timer of a first-generation sensors message into
+the last state message, and calling `onState` with the result.
+
+- The client held the last state across connections, and merged a state
+  from before a reconnect with readings from after it.
+- `onState` was called for a message that was no state, with a sleep timer
+  `getState()` did not read.
 
 A caller calls `connect` before any other method, and the client holds the
 connection from then until `disconnect`, opening another when it closes, as

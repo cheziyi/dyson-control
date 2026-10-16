@@ -43,5 +43,4 @@ export {
   type OscillationAngles,
   type OscillationMode,
 } from "./environmentalCare/models/state.js";
-export { parseEnvironmentalCareCapabilities } from "./environmentalCare/protocol/capabilities.js";
 export { DysonConnectionError, DysonError } from "./error.js";

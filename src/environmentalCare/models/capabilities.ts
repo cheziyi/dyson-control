@@ -1,35 +1,34 @@
-// The controls a machine carries. `../protocol/capabilities.ts` reads them
-// from a machine's type, variant and capabilities.
+// What a machine carries. `../protocol/capabilities.ts` decodes it from the
+// machine's type, variant and firmware capabilities.
 
 import type { FanAirDirection, HeatMode, HumidificationMode } from "./state.js";
 
-/** How a machine oscillates: `basic` turns on and off, `advanced` sweeps
- * between settable angles, `barrel` turns to a preset angle or breezes, and
- * `tilt` tilts the machine on its axis. */
+/** How a machine oscillates, by Dyson's name for each: `basic` on and off,
+ * `advanced` between two angles as well, `barrel` to a preset angle or a
+ * breeze, and `tilt` on its axis. */
 export type OscillationKind = "none" | "basic" | "advanced" | "barrel" | "tilt";
 
-/** The controls a machine carries, each as what its control takes: the
- * modes or directions it can be set to, whether it can be switched on. An
- * empty list, or a `"none"` oscillation, is a control the machine does not
- * carry, and `setState` takes no field for. */
+/** Each field but `oscillation` and `hasAirQualitySensor` is named for the
+ * `EnvironmentalCareState` field it governs, and says whether `setState`
+ * takes that field or which values it takes. An empty list is a field the
+ * machine does not take. */
 export interface EnvironmentalCareCapabilities {
-  /** Whether the machine picks the fan speed itself. */
   autoMode: boolean;
-  /** Whether the machine keeps measuring the air while it is off. */
   continuousMonitoring: boolean;
-  /** The modes the machine's heat control takes, `off` and `heat`. An empty
-   * list is a machine that does not heat. */
+  /** Also governs `targetTemperatureInC`. */
   heatModes: HeatMode[];
-  /** The directions the machine can blow its air, `forward` and `backward`.
-   * An empty list is a machine that carries no air direction. */
   fanAirDirections: FanAirDirection[];
-  /** The modes the machine's humidification control takes, `off` and
-   * `humidify`. An empty list is a machine that does not humidify. */
+  /** Also governs `manualHumidificationTargetInPercent`. */
   humidificationModes: HumidificationMode[];
-  /** Whether the machine picks the humidification target itself. */
   autoHumidification: boolean;
+  /** `setState` writes `oscillationMode` to a `basic`, `advanced` or
+   * `barrel` oscillation, and nothing else of a `barrel` or a `tilt` one. */
   oscillation: OscillationKind;
-  /** Whether the machine measures the air, and so reports air quality
-   * readings. */
-  airQualitySensor: boolean;
+  /** Whether the machine takes any two angles. An `advanced` oscillation
+   * whose firmware does not takes a preset angle alone, which `setState`
+   * does not write. */
+  oscillationAngles: boolean;
+  /** Whether the machine measures the air, and so reports the pollutant
+   * readings of `EnvironmentalCareSensors`. */
+  hasAirQualitySensor: boolean;
 }

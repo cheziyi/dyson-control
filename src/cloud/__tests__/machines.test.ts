@@ -35,7 +35,7 @@ describe("getMachines", () => {
         type: "438",
         category: "environmentalCare",
         firmwareVersion: "1.2.3",
-        capabilities: ["AdvanceOscillationDay1"],
+        firmwareCapabilities: ["AdvanceOscillationDay1"],
         remoteBrokerType: "awsIot",
       },
       {

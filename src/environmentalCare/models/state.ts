@@ -52,7 +52,9 @@ export interface EnvironmentalCareState {
   nightMode: boolean | null;
   /** Whether the machine keeps measuring the air while it is off. */
   continuousMonitoring: boolean | null;
-  /** The minutes left until the machine switches itself off, or `off`. */
+  /** The minutes left until the machine switches itself off, or `off`. A
+   * machine of the first generation reports it in
+   * `EnvironmentalCareSensors.sleepTimerInMinutes`. */
   sleepTimerInMinutes: number | "off" | null;
   fanAirDirection: FanAirDirection | null;
   heatMode: HeatMode | null;
@@ -92,4 +94,7 @@ export interface EnvironmentalCareSensors {
   formaldehydeIndex: number | null;
   carbonDioxideInPpm: number | null;
   carbonDioxideIndex: number | null;
+  /** A machine of the first generation reports its sleep timer here, and a
+   * later one in `EnvironmentalCareState.sleepTimerInMinutes`. */
+  sleepTimerInMinutes: number | "off" | null;
 }

@@ -21,7 +21,9 @@ export type RemoteBrokerType = (typeof REMOTE_BROKER_TYPES)[number];
 
 /** A machine registered to an account, as `getMachines` finds it or as a
  * caller writes it by hand, carrying what a client needs to reach it. A
- * machine written by hand needs only `serialNumber` and `type`. */
+ * machine written by hand needs only `serialNumber` and `type` to connect,
+ * but `EnvironmentalCareClient.capabilities` also reads `variant` and
+ * `firmwareCapabilities`. */
 export interface DysonMachine {
   serialNumber: string;
   /** The cloud's code for the kind of machine, such as `438`. It says how
@@ -42,9 +44,9 @@ export interface DysonMachine {
   productName?: string;
   /** The machine's firmware, as the cloud last saw it. */
   firmwareVersion?: string;
-  /** The capability names the cloud reports for the machine, such as
-   * `AdvanceOscillationDay1`. Left out when the cloud reports no list. */
-  capabilities?: string[];
+  /** What the machine's firmware can do, as the cloud names it, such as
+   * `AdvanceOscillationDay1`. */
+  firmwareCapabilities?: string[];
   /** Left out means `awsIot`. */
   remoteBrokerType?: RemoteBrokerType;
 }

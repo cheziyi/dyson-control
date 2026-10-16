@@ -69,6 +69,22 @@ describe("EnvironmentalCareClient", () => {
     );
   });
 
+  it("reads what the machine carries from its type, variant and firmware capabilities, without connecting", () => {
+    expect(
+      client({
+        ...MACHINE,
+        type: "438",
+        variant: "M",
+        firmwareCapabilities: ["AdvanceOscillationDay1"],
+      }).capabilities,
+    ).toMatchObject({
+      fanAirDirections: [],
+      oscillation: "advanced",
+      oscillationAngles: true,
+    });
+    expect(mock.broker.published).toEqual([]);
+  });
+
   it("reads the state the machine answers a request with", async () => {
     await expect((await connected()).getState()).resolves.toMatchObject({
       fanPower: true,
@@ -211,29 +227,20 @@ describe("EnvironmentalCareClient", () => {
     expect(onState).not.toHaveBeenCalled();
   });
 
-  it("takes the sleep timer of a first-generation machine from the data of a sensors message", async () => {
+  it("passes the sleep timer of a first-generation machine on with its readings", async () => {
     const onState = vi.fn();
     const onSensors = vi.fn();
     await connected({ ...MACHINE, type: "455" }, { onState, onSensors });
 
     mock.broker.send({
-      msg: "CURRENT-STATE",
-      "product-state": { fmod: "FAN", fnsp: "0004", sltm: "OFF" },
-    });
-    mock.broker.send({
       msg: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
       data: { tact: "2952", sltm: "0030" },
     });
-    mock.broker.send({
-      msg: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
-      data: { tact: "2962" },
-    });
 
-    expect(onState.mock.calls).toMatchObject([
-      [{ fanPower: true, sleepTimerInMinutes: "off" }],
-      [{ fanPower: true, sleepTimerInMinutes: 30 }],
+    expect(onSensors.mock.calls).toMatchObject([
+      [{ temperatureInC: 22.2, sleepTimerInMinutes: 30 }],
     ]);
-    expect(onSensors).toHaveBeenCalledTimes(2);
+    expect(onState).not.toHaveBeenCalled();
   });
 
   it("calls onReconnect once it connected again by itself, and onDisconnect for a disconnect", async () => {
