@@ -14,38 +14,49 @@ describe("the environmental care tables", () => {
       ],
       ENVIRONMENTAL_CARE_TYPES_WITHOUT_AUTO_MODE: ["635", "739", "949", "960"],
       ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING: ["739", "960"],
-      ENVIRONMENTAL_CARE_HEAT_TYPES: [
-        "455",
-        "527",
-        "527E",
-        "527K",
-        "635",
-        "918",
+      ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE: [
+        ...["455", "527", "527E", "527K", "635", "918"],
       ],
-      ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_TYPES: [
+      ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION: [
         ...["358", "358E", "358K", "438", "438E", "438K", "520"],
         ...["527", "527E", "527K"],
       ],
-      ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_EXCLUDED_VARIANTS: ["438M", "527M"],
-      ENVIRONMENTAL_CARE_HUMIDIFICATION_TYPES: ["358", "358E", "358K", "965"],
-      ENVIRONMENTAL_CARE_AUTO_HUMIDIFICATION_TYPES: ["358", "358E", "358K"],
-      ENVIRONMENTAL_CARE_BARREL_OSCILLATION_TYPES: ["358", "358E", "358K"],
-      ENVIRONMENTAL_CARE_TILT_OSCILLATION_TYPES: ["664"],
-      ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION: ["664", "897", "965"],
-      ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION: [
+      ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION: ["438M", "527M"],
+      ENVIRONMENTAL_CARE_TYPES_WITH_HUMIDIFICATION_MODE: [
+        ...["358", "358E", "358K", "965"],
+      ],
+      ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION: [
         "358",
         "358E",
         "358K",
-        "664",
-        "965",
-        "997",
-        "1018",
       ],
-      ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_CAPABILITIES: [
-        "AdvanceOscillationDay0",
-        "AdvanceOscillationDay1",
+      ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION: ["358", "358E", "358K"],
+      ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES: [45, 90, "breeze"],
+      ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES: [45, 90, 180, 350],
+      ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_RANGE: {
+        lowerInDegrees: 5,
+        upperInDegrees: 355,
+      },
+      ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_ANGLE_WIDTHS: [
+        0, 45, 90, 180, 350,
+      ],
+      ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES: [15, 40, 70],
+      ENVIRONMENTAL_CARE_NARROW_OSCILLATION_RANGE: {
+        lowerInDegrees: 145,
+        upperInDegrees: 215,
+      },
+      ENVIRONMENTAL_CARE_NARROW_OSCILLATION_ANGLE_WIDTHS: [0],
+      ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION: ["635", "739"],
+      ENVIRONMENTAL_CARE_TYPES_WITH_TILT_OSCILLATION: ["664"],
+      ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION: ["897", "965"],
+      ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION: [
+        ...["965", "997", "1018"],
       ],
       ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR: ["739", "960"],
+      ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES: {
+        advanceOscillationDay0: "AdvanceOscillationDay0",
+        advanceOscillationDay1: "AdvanceOscillationDay1",
+      },
       ENVIRONMENTAL_CARE_COMMANDS: {
         requestCurrentState: "REQUEST-CURRENT-STATE",
         requestProductEnvironmentCurrentSensorData:
@@ -89,6 +100,7 @@ describe("the environmental care tables", () => {
         highResolutionFormaldehyde: "hchr",
         carbonDioxide: "co2a",
         highResolutionCarbonDioxide: "co2r",
+        sleepTimer: "sltm",
       },
       ENVIRONMENTAL_CARE_SWITCH_CODES: { on: "ON", off: "OFF" },
       ENVIRONMENTAL_CARE_FAN_MODE_CODES: {
@@ -112,7 +124,10 @@ describe("the environmental care tables", () => {
         off: "OFF",
         humidify: "HUMD",
       },
-      ENVIRONMENTAL_CARE_CUSTOM_OSCILLATION_PRESET_ANGLE: "CUST",
+      ENVIRONMENTAL_CARE_OSCILLATION_PRESET_ANGLE_CODES: {
+        breeze: "BRZE",
+        custom: "CUST",
+      },
       ENVIRONMENTAL_CARE_KELVIN_OFFSETS: { generation1: 273, later: 273.15 },
     });
   });

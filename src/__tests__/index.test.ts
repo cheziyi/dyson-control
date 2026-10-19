@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as dysonControl from "../index.js";
 
 describe("the package", () => {
-  it("exports the clients, account calls, value lists, errors and the controls of a machine, and nothing else", () => {
+  it("exports the clients, account calls, value lists and errors, and nothing else", () => {
     expect(Object.keys(dysonControl).sort()).toEqual([
       "DysonConnectionError",
       "DysonError",
@@ -13,11 +13,11 @@ describe("the package", () => {
       "HUMIDIFICATION_MODES",
       "MACHINE_CATEGORIES",
       "OSCILLATION_MODES",
+      "OSCILLATION_PRESET_ANGLES",
       "REMOTE_BROKER_TYPES",
       "getCountries",
       "getMachines",
       "login",
-      "parseEnvironmentalCareCapabilities",
       "requestLoginCode",
     ]);
   });

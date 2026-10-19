@@ -1,17 +1,38 @@
 import { describe, expect, it } from "vitest";
 import type {
+  EnvironmentalCareControl,
   EnvironmentalCareSensors,
   EnvironmentalCareState,
 } from "../../models/state.js";
+import { decodeEnvironmentalCareCapabilities } from "../capabilities.js";
 import {
   applyEnvironmentalCareControl,
   parseEnvironmentalCareSensors,
   parseEnvironmentalCareState,
 } from "../state.js";
+import { decodeEnvironmentalCareType } from "../type.js";
 
-const LATER = { generation1: false, hasAutoMode: true };
-const WITHOUT_AUTO_MODE = { generation1: false, hasAutoMode: false };
-const GENERATION_1 = { generation1: true, hasAutoMode: true };
+const LATER = { generation1: false };
+const GENERATION_1 = { generation1: true };
+
+// The fields a machine of the type is sent for the control.
+function apply(
+  machineType: string,
+  control: EnvironmentalCareControl,
+): Record<string, string> {
+  const type = decodeEnvironmentalCareType(machineType);
+  if (type === undefined) {
+    throw new Error(`${machineType} is no known type`);
+  }
+  return applyEnvironmentalCareControl(
+    type,
+    decodeEnvironmentalCareCapabilities(
+      { serialNumber: "S-1", type: machineType },
+      type,
+    ),
+    control,
+  );
+}
 
 // A purifier with a heater: every field but the humidifier's.
 const PURIFIER = {
@@ -36,6 +57,7 @@ const NOTHING_REPORTED: EnvironmentalCareState = {
   fanSpeed: null,
   oscillationMode: null,
   oscillationAngles: null,
+  oscillationPresetAngleInDegrees: null,
   nightMode: null,
   continuousMonitoring: null,
   sleepTimerInMinutes: null,
@@ -56,6 +78,7 @@ describe("parseEnvironmentalCareState", () => {
       fanSpeed: 4,
       oscillationMode: "on",
       oscillationAngles: { lowerInDegrees: 45, upperInDegrees: 315 },
+      oscillationPresetAngleInDegrees: "custom",
       nightMode: false,
       continuousMonitoring: true,
       sleepTimerInMinutes: "off",
@@ -129,6 +152,20 @@ describe("parseEnvironmentalCareState", () => {
     });
   });
 
+  it.each([
+    ["0045", 45],
+    ["0350", 350],
+    ["BRZE", "breeze"],
+    ["CUST", "custom"],
+    ["SMRT", null],
+    ["0030", null],
+  ])("reads an oscillation preset angle of %s as %s", (ancp, angle) => {
+    expect(
+      parseEnvironmentalCareState({ fpwr: "ON", ancp }, LATER)
+        .oscillationPresetAngleInDegrees,
+    ).toBe(angle);
+  });
+
   it("reads the minutes left on the sleep timer", () => {
     expect(
       parseEnvironmentalCareState({ fpwr: "ON", sltm: "0030" }, LATER)
@@ -160,18 +197,18 @@ describe("parseEnvironmentalCareState", () => {
 
 describe("applyEnvironmentalCareControl", () => {
   it("carries only the fields the control sets", () => {
-    expect(applyEnvironmentalCareControl(LATER, {})).toEqual({});
-    expect(applyEnvironmentalCareControl(LATER, { nightMode: true })).toEqual({
+    expect(apply("438", {})).toEqual({});
+    expect(apply("438", { nightMode: true })).toEqual({
       nmod: "ON",
     });
-    expect(applyEnvironmentalCareControl(LATER, { fanPower: true })).toEqual({
+    expect(apply("438", { fanPower: true })).toEqual({
       fpwr: "ON",
     });
   });
 
   it("encodes every field", () => {
     expect(
-      applyEnvironmentalCareControl(LATER, {
+      apply("438", {
         fanPower: false,
         autoMode: false,
         fanSpeed: 5,
@@ -207,9 +244,34 @@ describe("applyEnvironmentalCareControl", () => {
     });
   });
 
+  it.each([
+    [90, "0090"],
+    [15, "0015"],
+    ["breeze", "BRZE"],
+  ] as const)("encodes an oscillation preset angle of %s", (angle, ancp) => {
+    expect(apply("438", { oscillationPresetAngleInDegrees: angle })).toEqual({
+      oson: "ON",
+      ancp,
+    });
+  });
+
+  it("switches the oscillation on with its angles, unless the control sets it", () => {
+    expect(
+      apply("438", {
+        oscillationAngles: { lowerInDegrees: 90, upperInDegrees: 180 },
+      }),
+    ).toEqual({ oson: "ON", osal: "0090", osau: "0180", ancp: "CUST" });
+    expect(
+      apply("358", {
+        oscillationMode: "idleOn",
+        oscillationPresetAngleInDegrees: "breeze",
+      }),
+    ).toEqual({ oson: "OION", ancp: "BRZE" });
+  });
+
   it("encodes each mode", () => {
     expect(
-      applyEnvironmentalCareControl(LATER, {
+      apply("438", {
         oscillationMode: "on",
         fanAirDirection: "forward",
         heatMode: "off",
@@ -227,7 +289,7 @@ describe("applyEnvironmentalCareControl", () => {
 
   describe("for a later type", () => {
     it("switches the machine on and its auto mode off with a fan speed", () => {
-      expect(applyEnvironmentalCareControl(LATER, { fanSpeed: 3 })).toEqual({
+      expect(apply("438", { fanSpeed: 3 })).toEqual({
         fpwr: "ON",
         auto: "OFF",
         fnsp: "0003",
@@ -238,7 +300,7 @@ describe("applyEnvironmentalCareControl", () => {
       [true, "ON"],
       [false, "OFF"],
     ])("switches the machine on with an auto mode of %s", (autoMode, auto) => {
-      expect(applyEnvironmentalCareControl(LATER, { autoMode })).toEqual({
+      expect(apply("438", { autoMode })).toEqual({
         fpwr: "ON",
         auto,
       });
@@ -246,7 +308,7 @@ describe("applyEnvironmentalCareControl", () => {
 
     it("keeps the power and the auto mode the control sets", () => {
       expect(
-        applyEnvironmentalCareControl(LATER, {
+        apply("438", {
           fanPower: false,
           autoMode: true,
           fanSpeed: 3,
@@ -255,17 +317,15 @@ describe("applyEnvironmentalCareControl", () => {
     });
 
     it("switches the sleep timer off with the machine", () => {
-      expect(applyEnvironmentalCareControl(LATER, { fanPower: false })).toEqual(
-        {
-          fpwr: "OFF",
-          sltm: "OFF",
-        },
-      );
+      expect(apply("438", { fanPower: false })).toEqual({
+        fpwr: "OFF",
+        sltm: "OFF",
+      });
     });
 
     it("keeps the sleep timer the control sets with a power off", () => {
       expect(
-        applyEnvironmentalCareControl(LATER, {
+        apply("438", {
           fanPower: false,
           sleepTimerInMinutes: 30,
         }),
@@ -273,9 +333,7 @@ describe("applyEnvironmentalCareControl", () => {
     });
 
     it("sends no auto with a fan speed to a type without an auto mode", () => {
-      expect(
-        applyEnvironmentalCareControl(WITHOUT_AUTO_MODE, { fanSpeed: 3 }),
-      ).toEqual({
+      expect(apply("635", { fanSpeed: 3 })).toEqual({
         fpwr: "ON",
         fnsp: "0003",
       });
@@ -305,22 +363,18 @@ describe("applyEnvironmentalCareControl", () => {
         { fmod: "OFF", fnsp: "0003", sltm: "OFF" },
       ],
     ] as const)("writes the fan mode for %s", (_name, control, data) => {
-      expect(applyEnvironmentalCareControl(GENERATION_1, control)).toEqual(
-        data,
-      );
+      expect(apply("475", control)).toEqual(data);
     });
 
     it("writes no fan mode for a control without power, auto mode or fan speed", () => {
-      expect(
-        applyEnvironmentalCareControl(GENERATION_1, { nightMode: true }),
-      ).toEqual({
+      expect(apply("475", { nightMode: true })).toEqual({
         nmod: "ON",
       });
     });
 
     it("counts the target temperature from 273 K", () => {
       expect(
-        applyEnvironmentalCareControl(GENERATION_1, {
+        apply("475", {
           targetTemperatureInC: 22,
         }),
       ).toEqual({ hmax: "2950" });
@@ -342,6 +396,7 @@ describe("parseEnvironmentalCareSensors", () => {
     formaldehydeIndex: null,
     carbonDioxideInPpm: null,
     carbonDioxideIndex: null,
+    sleepTimerInMinutes: null,
   };
 
   it("reads every reading", () => {
@@ -376,6 +431,7 @@ describe("parseEnvironmentalCareSensors", () => {
       formaldehydeIndex: 0.3,
       carbonDioxideInPpm: 612,
       carbonDioxideIndex: 1.2,
+      sleepTimerInMinutes: null,
     });
   });
 
@@ -396,5 +452,16 @@ describe("parseEnvironmentalCareSensors", () => {
       parseEnvironmentalCareSensors({ tact: "2950" }, GENERATION_1)
         .temperatureInC,
     ).toBe(22);
+  });
+
+  it("reads the sleep timer of the first generation", () => {
+    expect(
+      parseEnvironmentalCareSensors({ sltm: "0030" }, GENERATION_1)
+        .sleepTimerInMinutes,
+    ).toBe(30);
+    expect(
+      parseEnvironmentalCareSensors({ sltm: "OFF" }, GENERATION_1)
+        .sleepTimerInMinutes,
+    ).toBe("off");
   });
 });

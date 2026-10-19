@@ -69,6 +69,22 @@ describe("EnvironmentalCareClient", () => {
     );
   });
 
+  it("reads what the machine carries from its type, variant and firmware capabilities, without connecting", () => {
+    expect(
+      client({
+        ...MACHINE,
+        type: "438",
+        variant: "M",
+        firmwareCapabilities: ["AdvanceOscillationDay1"],
+      }).capabilities,
+    ).toMatchObject({
+      fanAirDirections: [],
+      oscillation: "advanced",
+      oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 355 },
+    });
+    expect(mock.broker.published).toEqual([]);
+  });
+
   it("reads the state the machine answers a request with", async () => {
     await expect((await connected()).getState()).resolves.toMatchObject({
       fanPower: true,
@@ -142,6 +158,77 @@ describe("EnvironmentalCareClient", () => {
       });
     });
 
+    it("rejects, and sends nothing, for a field or a value the machine does not take", async () => {
+      const purifier = await connected();
+
+      await expect(
+        purifier.setState({ fanSpeed: 3, heatMode: "heat" }),
+      ).rejects.toThrow(
+        "The machine takes no heatMode: see EnvironmentalCareClient.capabilities",
+      );
+      await expect(
+        purifier.setState({ oscillationPresetAngleInDegrees: 45 }),
+      ).rejects.toThrow("The machine takes no oscillationPresetAngleInDegrees");
+      expect(mock.broker.published).toEqual([]);
+    });
+
+    it("writes a preset angle to a machine whose firmware takes no two angles", async () => {
+      const purifier = await connected({
+        ...MACHINE,
+        firmwareCapabilities: ["AdvanceOscillationDay0"],
+      });
+
+      await expect(
+        purifier.setState({
+          oscillationAngles: { lowerInDegrees: 90, upperInDegrees: 180 },
+        }),
+      ).rejects.toThrow("The machine takes no oscillationAngles");
+      await purifier.setState({ oscillationPresetAngleInDegrees: 90 });
+
+      expect(mock.broker.published).toMatchObject([
+        { message: { msg: "STATE-SET", data: { oson: "ON", ancp: "0090" } } },
+      ]);
+    });
+
+    it("rejects angles outside the range or the widths the machine takes", async () => {
+      const purifier = await connected({
+        ...MACHINE,
+        firmwareCapabilities: ["AdvanceOscillationDay1"],
+      });
+
+      for (const [lowerInDegrees, upperInDegrees] of [
+        [0, 180],
+        [90, 360],
+        [180, 90],
+        [90, 120],
+      ]) {
+        await expect(
+          purifier.setState({
+            oscillationAngles: { lowerInDegrees, upperInDegrees },
+          }),
+        ).rejects.toThrow("The machine takes no oscillationAngles");
+      }
+      await purifier.setState({
+        oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 5 },
+      });
+      await purifier.setState({
+        oscillationAngles: { lowerInDegrees: 175, upperInDegrees: 355 },
+      });
+
+      expect(mock.broker.published).toMatchObject([
+        {
+          message: {
+            data: { oson: "ON", osal: "0005", osau: "0005", ancp: "CUST" },
+          },
+        },
+        {
+          message: {
+            data: { oson: "ON", osal: "0175", osau: "0355", ancp: "CUST" },
+          },
+        },
+      ]);
+    });
+
     it("sends nothing for a control that sets nothing", async () => {
       await (await connected()).setState({});
 
@@ -211,29 +298,20 @@ describe("EnvironmentalCareClient", () => {
     expect(onState).not.toHaveBeenCalled();
   });
 
-  it("takes the sleep timer of a first-generation machine from the data of a sensors message", async () => {
+  it("passes the sleep timer of a first-generation machine on with its readings", async () => {
     const onState = vi.fn();
     const onSensors = vi.fn();
     await connected({ ...MACHINE, type: "455" }, { onState, onSensors });
 
     mock.broker.send({
-      msg: "CURRENT-STATE",
-      "product-state": { fmod: "FAN", fnsp: "0004", sltm: "OFF" },
-    });
-    mock.broker.send({
       msg: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
       data: { tact: "2952", sltm: "0030" },
     });
-    mock.broker.send({
-      msg: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
-      data: { tact: "2962" },
-    });
 
-    expect(onState.mock.calls).toMatchObject([
-      [{ fanPower: true, sleepTimerInMinutes: "off" }],
-      [{ fanPower: true, sleepTimerInMinutes: 30 }],
+    expect(onSensors.mock.calls).toMatchObject([
+      [{ temperatureInC: 22.2, sleepTimerInMinutes: 30 }],
     ]);
-    expect(onSensors).toHaveBeenCalledTimes(2);
+    expect(onState).not.toHaveBeenCalled();
   });
 
   it("calls onReconnect once it connected again by itself, and onDisconnect for a disconnect", async () => {
