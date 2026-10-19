@@ -190,7 +190,7 @@ describe("EnvironmentalCareClient", () => {
       ]);
     });
 
-    it("rejects angles outside those the machine takes", async () => {
+    it("rejects angles outside the range or the widths the machine takes", async () => {
       const purifier = await connected({
         ...MACHINE,
         firmwareCapabilities: ["AdvanceOscillationDay1"],
@@ -200,6 +200,7 @@ describe("EnvironmentalCareClient", () => {
         [0, 180],
         [90, 360],
         [180, 90],
+        [90, 120],
       ]) {
         await expect(
           purifier.setState({
@@ -210,11 +211,19 @@ describe("EnvironmentalCareClient", () => {
       await purifier.setState({
         oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 5 },
       });
+      await purifier.setState({
+        oscillationAngles: { lowerInDegrees: 175, upperInDegrees: 355 },
+      });
 
       expect(mock.broker.published).toMatchObject([
         {
           message: {
             data: { oson: "ON", osal: "0005", osau: "0005", ancp: "CUST" },
+          },
+        },
+        {
+          message: {
+            data: { oson: "ON", osal: "0175", osau: "0355", ancp: "CUST" },
           },
         },
       ]);

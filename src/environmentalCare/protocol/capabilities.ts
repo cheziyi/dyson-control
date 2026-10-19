@@ -11,10 +11,12 @@ import {
   type OscillationPresetAngle,
 } from "../models/state.js";
 import {
+  ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_ANGLE_WIDTHS,
   ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_RANGE,
   ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES,
+  ENVIRONMENTAL_CARE_NARROW_OSCILLATION_ANGLE_WIDTHS,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_RANGE,
   ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION,
@@ -79,6 +81,14 @@ export function decodeEnvironmentalCareCapabilities(
       ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION.includes(machine.type),
     oscillation,
     oscillationAngles,
+    oscillationAngleWidthsInDegrees:
+      oscillationAngles === null
+        ? []
+        : [
+            ...(narrow
+              ? ENVIRONMENTAL_CARE_NARROW_OSCILLATION_ANGLE_WIDTHS
+              : ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_ANGLE_WIDTHS),
+          ],
     oscillationPresetAnglesInDegrees: [
       ...decodeOscillationPresetAngles(
         oscillation,
@@ -134,7 +144,7 @@ function decodeOscillationRange(narrow: boolean): OscillationAngles {
   };
 }
 
-// A machine that takes any two angles takes a preset as two of them.
+// A machine that takes oscillation angles takes a preset as two of them.
 function decodeOscillationPresetAngles(
   oscillation: OscillationKind,
   takesOscillationAngles: boolean,

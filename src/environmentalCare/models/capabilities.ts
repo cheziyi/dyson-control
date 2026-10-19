@@ -14,8 +14,9 @@ import type {
  * breeze, and `tilt` on its axis. */
 export type OscillationKind = "none" | "basic" | "advanced" | "barrel" | "tilt";
 
-/** Each field but `oscillation` and `hasAirQualitySensor` is named for the
- * `EnvironmentalCareState` field it governs, and says whether `setState`
+/** Each field but `oscillation`, `oscillationAngleWidthsInDegrees` and
+ * `hasAirQualitySensor` is named for the `EnvironmentalCareState` field it
+ * governs, and says whether `setState`
  * takes that field or which values it takes. An empty list is a field the
  * machine does not take, and `setState` rejects a field the machine does
  * not take. */
@@ -31,11 +32,15 @@ export interface EnvironmentalCareCapabilities {
   /** `setState` writes `oscillationMode` to every oscillation but `tilt`,
    * which it writes nothing to. */
   oscillation: OscillationKind;
-  /** The widest `oscillationAngles` the machine takes: it takes any two
-   * angles between these, the lower first. `null` for a machine that takes
+  /** The widest `oscillationAngles` the machine takes: it takes two angles
+   * between these, the lower first, apart by one of
+   * `oscillationAngleWidthsInDegrees`. `null` for a machine that takes
    * none: an `advanced` oscillation whose firmware takes none takes
    * `oscillationPresetAnglesInDegrees` instead. */
   oscillationAngles: OscillationAngles | null;
+  /** The upper angle less the lower that `oscillationAngles` takes. `0`
+   * points the machine one way without oscillating. */
+  oscillationAngleWidthsInDegrees: number[];
   oscillationPresetAnglesInDegrees: OscillationPresetAngle[];
   /** Whether the machine measures the air, and so reports the pollutant
    * readings of `EnvironmentalCareSensors`. */

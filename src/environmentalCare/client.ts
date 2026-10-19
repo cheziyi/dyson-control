@@ -239,10 +239,7 @@ function fieldsNotTaken(
       capabilities.oscillation !== "tilt",
     oscillationAngles:
       control.oscillationAngles === undefined ||
-      takesOscillationAngles(
-        capabilities.oscillationAngles,
-        control.oscillationAngles,
-      ),
+      takesOscillationAngles(capabilities, control.oscillationAngles),
     oscillationPresetAngleInDegrees: takes(
       capabilities.oscillationPresetAnglesInDegrees,
       control.oscillationPresetAngleInDegrees,
@@ -268,13 +265,16 @@ function fieldsNotTaken(
 }
 
 function takesOscillationAngles(
-  range: OscillationAngles | null,
+  capabilities: EnvironmentalCareCapabilities,
   angles: OscillationAngles,
 ): boolean {
+  const range = capabilities.oscillationAngles;
   return (
     range !== null &&
     range.lowerInDegrees <= angles.lowerInDegrees &&
-    angles.lowerInDegrees <= angles.upperInDegrees &&
-    angles.upperInDegrees <= range.upperInDegrees
+    angles.upperInDegrees <= range.upperInDegrees &&
+    capabilities.oscillationAngleWidthsInDegrees.includes(
+      angles.upperInDegrees - angles.lowerInDegrees,
+    )
   );
 }

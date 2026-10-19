@@ -18,7 +18,7 @@ const DAY_0 = ["AdvanceOscillationDay0"];
 const DAY_1 = ["AdvanceOscillationDay1"];
 
 describe("decodeEnvironmentalCareCapabilities", () => {
-  it("reads a later purifier whose firmware takes any two angles", () => {
+  it("reads a later purifier whose firmware takes two angles", () => {
     expect(decode({ type: "438", firmwareCapabilities: DAY_1 })).toEqual({
       autoMode: true,
       continuousMonitoring: true,
@@ -28,6 +28,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       autoHumidification: false,
       oscillation: "advanced",
       oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 355 },
+      oscillationAngleWidthsInDegrees: [0, 45, 90, 180, 350],
       oscillationPresetAnglesInDegrees: [],
       hasAirQualitySensor: true,
     });
@@ -44,10 +45,11 @@ describe("decodeEnvironmentalCareCapabilities", () => {
     });
   });
 
-  it("reads narrower angles for a 635 or a 739", () => {
+  it("reads one direction alone, in a narrower range, for a 635 or a 739", () => {
     expect(decode({ type: "739", firmwareCapabilities: DAY_1 })).toMatchObject({
       oscillation: "advanced",
       oscillationAngles: { lowerInDegrees: 145, upperInDegrees: 215 },
+      oscillationAngleWidthsInDegrees: [0],
       oscillationPresetAnglesInDegrees: [],
     });
   });
@@ -81,6 +83,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       autoHumidification: true,
       oscillation: "barrel",
       oscillationAngles: null,
+      oscillationAngleWidthsInDegrees: [],
       oscillationPresetAnglesInDegrees: [45, 90, "breeze"],
       hasAirQualitySensor: true,
     });

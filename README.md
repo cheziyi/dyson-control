@@ -144,6 +144,7 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `humidificationModes` | `off` and `humidify` for a machine that also takes `manualHumidificationTargetInPercent`, or an empty list |
 | `oscillation` | `basic`, on and off; `advanced`, between two angles as well; `barrel`, to a preset angle or a breeze; `tilt`, on the machine's axis; or `none` |
 | `oscillationAngles` | The widest `{ lowerInDegrees, upperInDegrees }` the machine takes, `5` to `355` or `145` to `215` on a `635` or `739`; or `null` when it takes no angles |
+| `oscillationAngleWidthsInDegrees` | How far apart the two `oscillationAngles` may be: `0`, `45`, `90`, `180` and `350`, or `0` alone on a `635` or `739`. `0` points the machine one way without oscillating |
 | `oscillationPresetAnglesInDegrees` | The preset angles an `advanced` machine without `oscillationAngles` takes, such as `45` and `90`, and a `barrel` machine's `45`, `90` and `breeze`; or an empty list |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
 

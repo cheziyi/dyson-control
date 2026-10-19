@@ -154,8 +154,16 @@ Rejected: sending `osal`, `osau` and `ancp` without `oson`.
   caller passes `oscillationMode: "idleOn"` for the other.
 
 `setState` takes `oscillationAngles` only within
-`capabilities.oscillationAngles`, the lower first: a machine is written
-angles from 5 to 355 degrees, and from 145 to 215 on a `635` or `739`.
+`capabilities.oscillationAngles`, apart by one of
+`capabilities.oscillationAngleWidthsInDegrees`: a machine is written angles
+from 5 to 355 degrees, as one direction or a preset angle's width placed
+anywhere in that range, and on a `635` or `739` one direction from 145 to
+215.
+
+Rejected: any two angles within the range.
+
+- No two angles but those are known to be written, and nothing reports what
+  a machine does with the rest.
 
 `setState` rejects with an `Error`, and sends nothing, for a field or a value
 [`capabilities`](#capabilities) says the machine does not take.

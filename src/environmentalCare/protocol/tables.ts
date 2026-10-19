@@ -103,14 +103,22 @@ export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES: readonly Osc
 export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_RANGE: Readonly<OscillationAngles> =
   { lowerInDegrees: 5, upperInDegrees: 355 };
 
-/** The preset angles and the widest angles of an advanced oscillation in
- * place of the advanced ones, for the types in
+/** The upper angle less the lower of an advanced oscillation whose firmware
+ * takes two angles of its own: one direction, or a preset angle's width. */
+export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_ANGLE_WIDTHS: readonly number[] =
+  [0, 45, 90, 180, 350];
+
+/** The preset angles, the widest angles and their widths of an advanced
+ * oscillation in place of the advanced ones, for the types in
  * `ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION`. */
 export const ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES: readonly OscillationPresetAngle[] =
   [15, 40, 70];
 
 export const ENVIRONMENTAL_CARE_NARROW_OSCILLATION_RANGE: Readonly<OscillationAngles> =
   { lowerInDegrees: 145, upperInDegrees: 215 };
+
+export const ENVIRONMENTAL_CARE_NARROW_OSCILLATION_ANGLE_WIDTHS: readonly number[] =
+  [0];
 
 export const ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION: readonly string[] =
   ["635", "739"];
@@ -134,7 +142,7 @@ export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR: readonly strin
 
 /** What a machine's firmware can do, as the cloud names it. A later type
  * with either oscillation capability takes oscillation angles: a preset in
- * `ancp` with `advanceOscillationDay0` alone, and any two in `osal` and
+ * `ancp` with `advanceOscillationDay0` alone, and two in `osal` and
  * `osau` with `advanceOscillationDay1`. */
 export const ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES = {
   advanceOscillationDay0: "AdvanceOscillationDay0",
