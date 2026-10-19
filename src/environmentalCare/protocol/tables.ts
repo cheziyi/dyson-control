@@ -1,18 +1,24 @@
 import type { Filter } from "../models/capabilities.js";
 import type {
+  AirQualityTarget,
   CleanCycleState,
   FanAirDirection,
   FindAndFollowMode,
+  FocusDiffuse,
   HeatMode,
   HumidificationMode,
   InnerFilterType,
+  NozzleAngle,
   OscillationAngles,
   OscillationMode,
   OscillationPresetAngle,
   OscillationState,
   OuterFilterType,
+  TemperatureUnit,
   TiltAngle,
   WaterHardness,
+  WickDryingSpeed,
+  WickDryingState,
 } from "../models/state.js";
 
 // The types, messages, fields and codes of an environmental care machine.
@@ -170,6 +176,38 @@ export const ENVIRONMENTAL_CARE_TYPES_WITH_CLEAN_CYCLE: readonly string[] = [
 export const ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW: readonly string[] =
   ["438N", "527N"];
 
+export const ENVIRONMENTAL_CARE_TYPES_WITH_CHILD_LOCK: readonly string[] = [
+  "635",
+  "739",
+  "918",
+  "965",
+  "997",
+  "1018",
+];
+
+/** The later types that take no `temperatureUnit`. A machine of the first
+ * generation takes none either: its unit follows its serial number, which
+ * is Fahrenheit for a US one. */
+export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_TEMPERATURE_UNIT: readonly string[] =
+  ["739", "897", "917", "949", "960", "997", "1018"];
+
+/** Each a type and its variant joined, as in
+ * `ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION`. */
+export const ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_TEMPERATURE_UNIT: readonly string[] =
+  ["438M"];
+
+export const ENVIRONMENTAL_CARE_TYPES_WITH_NOZZLE_ANGLE: readonly string[] = [
+  "831",
+];
+
+export const ENVIRONMENTAL_CARE_TYPES_WITH_FOCUS_DIFFUSE: readonly string[] = [
+  "455",
+];
+
+export const ENVIRONMENTAL_CARE_TYPES_WITH_WICK_DRYING: readonly string[] = [
+  "965",
+];
+
 /** What a machine's firmware can do, as the cloud names it. A later type
  * with either oscillation capability takes oscillation angles: a preset in
  * `ancp` with `advanceOscillationDay0` alone, and two in `osal` and
@@ -238,6 +276,17 @@ export const ENVIRONMENTAL_CARE_FIELDS = {
   remainingTimeToNextCleanCycle: "cltr",
   remainingTimeOfActiveCleanCycle: "cdrr",
   intervalBetweenCleanCycles: "wath",
+  childLockMode: "ctll",
+  temperatureUnit: "corf",
+  nozzleAngle: "noan",
+  focusDiffuse: "ffoc",
+  airQualityTarget: "qtar",
+  wickDryingMode: "wdmd",
+  wickDryingSpeed: "wdsp",
+  wickDryingState: "wdst",
+  wickDryingTimeRemaining: "wdtr",
+  heatState: "hsta",
+  humidificationState: "msta",
   filterLife: "filf",
   innerFilterLife: "cflr",
   outerFilterLife: "hflr",
@@ -389,6 +438,51 @@ export const ENVIRONMENTAL_CARE_WATER_HARDNESS_INTERVALS_IN_HOURS: Readonly<
   soft: 2025,
   medium: 1350,
   hard: 675,
+};
+
+export const ENVIRONMENTAL_CARE_TEMPERATURE_UNIT_CODES: Readonly<
+  Record<TemperatureUnit, string>
+> = {
+  celsius: "ON",
+  fahrenheit: "OFF",
+};
+
+export const ENVIRONMENTAL_CARE_NOZZLE_ANGLE_CODES: Readonly<
+  Record<NozzleAngle, string>
+> = {
+  direct: "0000",
+  indirect: "0045",
+};
+
+export const ENVIRONMENTAL_CARE_FOCUS_DIFFUSE_CODES: Readonly<
+  Record<FocusDiffuse, string>
+> = {
+  focus: "ON",
+  diffuse: "OFF",
+};
+
+/** The index each air quality target is written as, in four digits. */
+export const ENVIRONMENTAL_CARE_AIR_QUALITY_TARGET_CODES: Readonly<
+  Record<AirQualityTarget, number>
+> = {
+  good: 4,
+  sensitive: 3,
+  verySensitive: 1,
+};
+
+export const ENVIRONMENTAL_CARE_WICK_DRYING_SPEED_CODES: Readonly<
+  Record<WickDryingSpeed, string>
+> = {
+  slow: "SLOW",
+  normal: "NORM",
+  fast: "FAST",
+};
+
+export const ENVIRONMENTAL_CARE_WICK_DRYING_STATE_CODES: Readonly<
+  Record<WickDryingState, string>
+> = {
+  idle: "IDLE",
+  wickDrying: "WDRY",
 };
 
 export const ENVIRONMENTAL_CARE_INNER_FILTER_TYPE_CODES: Readonly<

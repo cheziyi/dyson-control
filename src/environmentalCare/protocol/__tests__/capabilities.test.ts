@@ -34,6 +34,13 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       tiltAnglesInDegrees: [],
       findAndFollowModes: [],
       waterHardnesses: [],
+      childLockMode: false,
+      temperatureUnits: ["celsius", "fahrenheit"],
+      nozzleAngles: [],
+      focusDiffuses: [],
+      airQualityTargets: [],
+      wickDryingMode: false,
+      wickDryingSpeeds: [],
       hasAirQualitySensor: true,
       filters: ["innerFilter", "outerFilter"],
     });
@@ -95,6 +102,13 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       tiltAnglesInDegrees: [],
       findAndFollowModes: [],
       waterHardnesses: ["soft", "medium", "hard"],
+      childLockMode: false,
+      temperatureUnits: ["celsius", "fahrenheit"],
+      nozzleAngles: [],
+      focusDiffuses: [],
+      airQualityTargets: [],
+      wickDryingMode: false,
+      wickDryingSpeeds: [],
       hasAirQualitySensor: true,
       filters: ["innerFilter", "outerFilter"],
     });
@@ -119,6 +133,36 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       oscillationModes: [],
       oscillationAngles: null,
       tiltAnglesInDegrees: [0, 25, 50, "breeze"],
+    });
+  });
+
+  it("reads a child lock and wick drying for a 965", () => {
+    expect(decode({ type: "965" })).toMatchObject({
+      childLockMode: true,
+      wickDryingMode: true,
+      wickDryingSpeeds: ["slow", "normal", "fast"],
+    });
+  });
+
+  it("reads a nozzle angle for an 831", () => {
+    expect(decode({ type: "831" })).toMatchObject({
+      nozzleAngles: ["direct", "indirect"],
+    });
+  });
+
+  it("reads focus and diffuse and an air quality target for a 455", () => {
+    expect(decode({ type: "455" })).toMatchObject({
+      focusDiffuses: ["focus", "diffuse"],
+      airQualityTargets: ["good", "sensitive", "verySensitive"],
+      temperatureUnits: [],
+    });
+    expect(decode({ type: "475" })).toMatchObject({ focusDiffuses: [] });
+  });
+
+  it("reads no temperature unit for the types and the variant without one", () => {
+    expect(decode({ type: "897" })).toMatchObject({ temperatureUnits: [] });
+    expect(decode({ type: "438", variant: "M" })).toMatchObject({
+      temperatureUnits: [],
     });
   });
 

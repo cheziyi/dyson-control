@@ -3,6 +3,8 @@ import type {
   Filter,
 } from "../models/capabilities.js";
 import {
+  AIR_QUALITY_TARGETS,
+  type AirQualityTarget,
   type EnvironmentalCareControl,
   type EnvironmentalCareSensors,
   type EnvironmentalCareState,
@@ -16,6 +18,7 @@ import {
   type WaterHardness,
 } from "../models/state.js";
 import {
+  ENVIRONMENTAL_CARE_AIR_QUALITY_TARGET_CODES,
   ENVIRONMENTAL_CARE_BACKWARD_TILT_ANGLE,
   ENVIRONMENTAL_CARE_CLEAN_CYCLE_STATE_CODES,
   ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_CODES,
@@ -23,10 +26,12 @@ import {
   ENVIRONMENTAL_CARE_FIELDS,
   ENVIRONMENTAL_CARE_FILTER_LIFE_IN_HOURS,
   ENVIRONMENTAL_CARE_FIND_AND_FOLLOW_MODE_CODES,
+  ENVIRONMENTAL_CARE_FOCUS_DIFFUSE_CODES,
   ENVIRONMENTAL_CARE_HEAT_MODE_CODES,
   ENVIRONMENTAL_CARE_HUMIDIFICATION_MODE_CODES,
   ENVIRONMENTAL_CARE_INNER_FILTER_TYPE_CODES,
   ENVIRONMENTAL_CARE_KELVIN_OFFSETS,
+  ENVIRONMENTAL_CARE_NOZZLE_ANGLE_CODES,
   ENVIRONMENTAL_CARE_OSCILLATION_MODE_CODES,
   ENVIRONMENTAL_CARE_OSCILLATION_PRESET_ANGLE_CODES,
   ENVIRONMENTAL_CARE_OSCILLATION_STATE_CODES,
@@ -35,9 +40,12 @@ import {
   ENVIRONMENTAL_CARE_RESET_FILTER_LIFE_FIELDS,
   ENVIRONMENTAL_CARE_SENSOR_FIELDS,
   ENVIRONMENTAL_CARE_SWITCH_CODES,
+  ENVIRONMENTAL_CARE_TEMPERATURE_UNIT_CODES,
   ENVIRONMENTAL_CARE_TILT_ANGLE_CODES,
   ENVIRONMENTAL_CARE_TILT_TYPE_CODES,
   ENVIRONMENTAL_CARE_WATER_HARDNESS_INTERVALS_IN_HOURS,
+  ENVIRONMENTAL_CARE_WICK_DRYING_SPEED_CODES,
+  ENVIRONMENTAL_CARE_WICK_DRYING_STATE_CODES,
 } from "./tables.js";
 import type { EnvironmentalCareType } from "./type.js";
 
@@ -119,6 +127,31 @@ export function parseEnvironmentalCareState(
     waterHardness: decodeWaterHardness(
       values[ENVIRONMENTAL_CARE_FIELDS.intervalBetweenCleanCycles],
     ),
+    childLockMode: decodeSwitch(
+      values[ENVIRONMENTAL_CARE_FIELDS.childLockMode],
+    ),
+    temperatureUnit: decodeCode(
+      ENVIRONMENTAL_CARE_TEMPERATURE_UNIT_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.temperatureUnit],
+    ),
+    nozzleAngle: decodeCode(
+      ENVIRONMENTAL_CARE_NOZZLE_ANGLE_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.nozzleAngle],
+    ),
+    focusDiffuse: decodeCode(
+      ENVIRONMENTAL_CARE_FOCUS_DIFFUSE_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.focusDiffuse],
+    ),
+    airQualityTarget: decodeAirQualityTarget(
+      values[ENVIRONMENTAL_CARE_FIELDS.airQualityTarget],
+    ),
+    wickDryingMode: decodeSwitch(
+      values[ENVIRONMENTAL_CARE_FIELDS.wickDryingMode],
+    ),
+    wickDryingSpeed: decodeCode(
+      ENVIRONMENTAL_CARE_WICK_DRYING_SPEED_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.wickDryingSpeed],
+    ),
     oscillationState: decodeCode(
       ENVIRONMENTAL_CARE_OSCILLATION_STATE_CODES,
       values[ENVIRONMENTAL_CARE_FIELDS.oscillationState],
@@ -157,17 +190,36 @@ export function parseEnvironmentalCareState(
       ENVIRONMENTAL_CARE_OUTER_FILTER_TYPE_CODES,
       values[ENVIRONMENTAL_CARE_FIELDS.outerFilterType],
     ),
+    heatState: decodeCode(
+      ENVIRONMENTAL_CARE_HEAT_MODE_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.heatState],
+    ),
+    humidificationState: decodeCode(
+      ENVIRONMENTAL_CARE_HUMIDIFICATION_MODE_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.humidificationState],
+    ),
+    wickDryingState: decodeCode(
+      ENVIRONMENTAL_CARE_WICK_DRYING_STATE_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.wickDryingState],
+    ),
+    wickDryingTimeRemainingInMinutes: decodeNumber(
+      values[ENVIRONMENTAL_CARE_FIELDS.wickDryingTimeRemaining],
+    ),
   };
 }
 
-/** The fields a `STATE-SET` carries for a control: those the control sets.
- * An `autoMode`, a `fanSpeed`, a `tiltAngleInDegrees` or a
- * `findAndFollowMode` other than `off` also switches the machine on, a
- * `fanSpeed` its auto mode off, a `fanPower` of `false` its sleep timer
- * off, and an `oscillationAngles` or an `oscillationPresetAngleInDegrees`
- * its oscillation on, unless the control sets those itself. A
- * `tiltAngleInDegrees` also sets the fan air direction. `type` says which
- * fields the machine holds its power and its auto mode in. */
+/** The fields a `STATE-SET` carries for a control: those the control sets,
+ * and those the machine is written with them. Every field but those of
+ * `FIELDS_WRITTEN_ALONE` also switches a later machine on, and a fan speed
+ * or an auto mode a machine of the first generation. A `fanSpeed` also
+ * switches the auto mode off, a `fanPower` of `false` the sleep timer, a
+ * `targetTemperatureInC` the heat mode to `heat`, and an
+ * `autoHumidification` or a `manualHumidificationTargetInPercent` the
+ * humidification mode to `humidify`, and the latter the auto humidification
+ * off. An `oscillationAngles` or an `oscillationPresetAngleInDegrees`
+ * switches the oscillation on, and a `tiltAngleInDegrees` sets the fan air
+ * direction. A field the control sets itself is sent as it sets it. `type`
+ * says which fields the machine holds its power and its auto mode in. */
 export function applyEnvironmentalCareControl(
   type: EnvironmentalCareType,
   capabilities: EnvironmentalCareCapabilities,
@@ -180,13 +232,9 @@ export function applyEnvironmentalCareControl(
     }
   };
 
-  const switchesOn =
-    control.autoMode !== undefined ||
-    control.fanSpeed !== undefined ||
-    control.tiltAngleInDegrees !== undefined ||
-    (control.findAndFollowMode !== undefined &&
-      control.findAndFollowMode !== "off");
-  const fanPower = control.fanPower ?? (switchesOn ? true : undefined);
+  const fanPower =
+    control.fanPower ??
+    (switchesOn(type, capabilities, control) ? true : undefined);
   const autoMode =
     control.autoMode ?? (control.fanSpeed === undefined ? undefined : false);
   if (type.generation1) {
@@ -249,22 +297,37 @@ export function applyEnvironmentalCareControl(
     data[ENVIRONMENTAL_CARE_FIELDS.fanAirDirection] =
       ENVIRONMENTAL_CARE_FAN_AIR_DIRECTION_CODES[control.fanAirDirection];
   }
-  if (control.heatMode !== undefined) {
+  const heatMode =
+    control.heatMode ??
+    (control.targetTemperatureInC === undefined ? undefined : "heat");
+  if (heatMode !== undefined) {
     data[ENVIRONMENTAL_CARE_FIELDS.heatMode] =
-      ENVIRONMENTAL_CARE_HEAT_MODE_CODES[control.heatMode];
+      ENVIRONMENTAL_CARE_HEAT_MODE_CODES[heatMode];
   }
   if (control.targetTemperatureInC !== undefined) {
     data[ENVIRONMENTAL_CARE_FIELDS.targetTemperature] = String(
       Math.round((control.targetTemperatureInC + kelvinOffset(type)) * 10),
     );
   }
-  if (control.humidificationMode !== undefined) {
+  const autoHumidification =
+    control.autoHumidification ??
+    (control.manualHumidificationTargetInPercent !== undefined &&
+    capabilities.autoHumidification
+      ? false
+      : undefined);
+  const humidificationMode =
+    control.humidificationMode ??
+    (autoHumidification === undefined &&
+    control.manualHumidificationTargetInPercent === undefined
+      ? undefined
+      : "humidify");
+  if (humidificationMode !== undefined) {
     data[ENVIRONMENTAL_CARE_FIELDS.humidificationMode] =
-      ENVIRONMENTAL_CARE_HUMIDIFICATION_MODE_CODES[control.humidificationMode];
+      ENVIRONMENTAL_CARE_HUMIDIFICATION_MODE_CODES[humidificationMode];
   }
   set(
     ENVIRONMENTAL_CARE_FIELDS.autoHumidification,
-    encodeSwitch(control.autoHumidification),
+    encodeSwitch(autoHumidification),
   );
   if (control.manualHumidificationTargetInPercent !== undefined) {
     data[ENVIRONMENTAL_CARE_FIELDS.manualHumidificationTarget] = encodeNumber(
@@ -278,7 +341,70 @@ export function applyEnvironmentalCareControl(
       ],
     );
   }
+  set(
+    ENVIRONMENTAL_CARE_FIELDS.childLockMode,
+    encodeSwitch(control.childLockMode),
+  );
+  if (control.temperatureUnit !== undefined) {
+    data[ENVIRONMENTAL_CARE_FIELDS.temperatureUnit] =
+      ENVIRONMENTAL_CARE_TEMPERATURE_UNIT_CODES[control.temperatureUnit];
+  }
+  if (control.nozzleAngle !== undefined) {
+    data[ENVIRONMENTAL_CARE_FIELDS.nozzleAngle] =
+      ENVIRONMENTAL_CARE_NOZZLE_ANGLE_CODES[control.nozzleAngle];
+  }
+  if (control.focusDiffuse !== undefined) {
+    data[ENVIRONMENTAL_CARE_FIELDS.focusDiffuse] =
+      ENVIRONMENTAL_CARE_FOCUS_DIFFUSE_CODES[control.focusDiffuse];
+  }
+  if (control.airQualityTarget !== undefined) {
+    data[ENVIRONMENTAL_CARE_FIELDS.airQualityTarget] = encodeNumber(
+      ENVIRONMENTAL_CARE_AIR_QUALITY_TARGET_CODES[control.airQualityTarget],
+    );
+  }
+  set(
+    ENVIRONMENTAL_CARE_FIELDS.wickDryingMode,
+    encodeSwitch(control.wickDryingMode),
+  );
+  if (control.wickDryingSpeed !== undefined) {
+    data[ENVIRONMENTAL_CARE_FIELDS.wickDryingSpeed] =
+      ENVIRONMENTAL_CARE_WICK_DRYING_SPEED_CODES[control.wickDryingSpeed];
+  }
   return data;
+}
+
+/** The fields a later machine is written without switching it on. */
+const FIELDS_WRITTEN_ALONE: readonly (keyof EnvironmentalCareControl)[] = [
+  "fanPower",
+  "continuousMonitoring",
+  "waterHardness",
+  "temperatureUnit",
+  "airQualityTarget",
+  "wickDryingMode",
+  "wickDryingSpeed",
+];
+
+// A machine of the first generation is switched on by its fan mode, which
+// takes it out of auto mode, so no other field switches it on. An advanced
+// or a barrel oscillation, and find and follow, go off without it.
+function switchesOn(
+  type: EnvironmentalCareType,
+  capabilities: EnvironmentalCareCapabilities,
+  control: EnvironmentalCareControl,
+): boolean {
+  if (type.generation1) {
+    return control.autoMode !== undefined || control.fanSpeed !== undefined;
+  }
+  const writtenAlone = (field: keyof EnvironmentalCareControl) =>
+    FIELDS_WRITTEN_ALONE.includes(field) ||
+    (field === "oscillationMode" &&
+      capabilities.oscillation !== "basic" &&
+      (control.oscillationMode === "off" ||
+        control.oscillationMode === "idleOff")) ||
+    (field === "findAndFollowMode" && control.findAndFollowMode === "off");
+  return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).some(
+    (field) => control[field] !== undefined && !writtenAlone(field),
+  );
 }
 
 /** The fields of the `STATE-SET` that resets a filter's life. */
@@ -390,6 +516,17 @@ function decodeTiltAngle(values: Record<string, string>): TiltAngle | null {
           ENVIRONMENTAL_CARE_TILT_ANGLE_CODES[each] === lower,
       ) ?? null)
     : null;
+}
+
+function decodeAirQualityTarget(
+  value: string | undefined,
+): AirQualityTarget | null {
+  const index = decodeNumber(value);
+  return (
+    AIR_QUALITY_TARGETS.find(
+      (each) => ENVIRONMENTAL_CARE_AIR_QUALITY_TARGET_CODES[each] === index,
+    ) ?? null
+  );
 }
 
 function decodeWaterHardness(value: string | undefined): WaterHardness | null {

@@ -31,6 +31,8 @@ export {
 } from "./environmentalCare/models/capabilities.js";
 export type { EnvironmentalCareFaults } from "./environmentalCare/models/faults.js";
 export {
+  AIR_QUALITY_TARGETS,
+  type AirQualityTarget,
   CLEAN_CYCLE_STATES,
   type CleanCycleState,
   type EnvironmentalCareControl,
@@ -43,12 +45,16 @@ export {
   type FanSpeed,
   FIND_AND_FOLLOW_MODES,
   type FindAndFollowMode,
+  FOCUS_DIFFUSES,
+  type FocusDiffuse,
   HEAT_MODES,
   type HeatMode,
   HUMIDIFICATION_MODES,
   type HumidificationMode,
   INNER_FILTER_TYPES,
   type InnerFilterType,
+  NOZZLE_ANGLES,
+  type NozzleAngle,
   OSCILLATION_MODES,
   OSCILLATION_PRESET_ANGLES,
   OSCILLATION_STATES,
@@ -58,9 +64,15 @@ export {
   type OscillationState,
   OUTER_FILTER_TYPES,
   type OuterFilterType,
+  TEMPERATURE_UNITS,
+  type TemperatureUnit,
   TILT_ANGLES,
   type TiltAngle,
   WATER_HARDNESSES,
   type WaterHardness,
+  WICK_DRYING_SPEEDS,
+  WICK_DRYING_STATES,
+  type WickDryingSpeed,
+  type WickDryingState,
 } from "./environmentalCare/models/state.js";
 export { DysonConnectionError, DysonError } from "./error.js";

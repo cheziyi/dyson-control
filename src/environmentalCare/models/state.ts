@@ -67,6 +67,39 @@ export const WATER_HARDNESSES = ["soft", "medium", "hard"] as const;
  * asks for a clean cycle. */
 export type WaterHardness = (typeof WATER_HARDNESSES)[number];
 
+export const TEMPERATURE_UNITS = ["celsius", "fahrenheit"] as const;
+
+/** The unit the machine shows a temperature in. */
+export type TemperatureUnit = (typeof TEMPERATURE_UNITS)[number];
+
+export const NOZZLE_ANGLES = ["direct", "indirect"] as const;
+
+/** `direct` is a nozzle at 0 degrees, and `indirect` one at 45. */
+export type NozzleAngle = (typeof NOZZLE_ANGLES)[number];
+
+export const FOCUS_DIFFUSES = ["focus", "diffuse"] as const;
+
+export type FocusDiffuse = (typeof FOCUS_DIFFUSES)[number];
+
+export const AIR_QUALITY_TARGETS = [
+  "good",
+  "sensitive",
+  "verySensitive",
+] as const;
+
+/** The air quality auto mode aims for, at the index of 4 for `good`, 3 for
+ * `sensitive` and 1 for `verySensitive`. */
+export type AirQualityTarget = (typeof AIR_QUALITY_TARGETS)[number];
+
+export const WICK_DRYING_SPEEDS = ["slow", "normal", "fast"] as const;
+
+/** How fast a humidifier dries its wick: in 60, 45 or 30 minutes. */
+export type WickDryingSpeed = (typeof WICK_DRYING_SPEEDS)[number];
+
+export const WICK_DRYING_STATES = ["idle", "wickDrying"] as const;
+
+export type WickDryingState = (typeof WICK_DRYING_STATES)[number];
+
 export const INNER_FILTER_TYPES = [
   "carbon",
   "sco",
@@ -163,6 +196,15 @@ export interface EnvironmentalCareState {
   tiltAngleInDegrees: TiltAngle | null;
   findAndFollowMode: FindAndFollowMode | null;
   waterHardness: WaterHardness | null;
+  /** Whether the machine's buttons are locked. */
+  childLockMode: boolean | null;
+  temperatureUnit: TemperatureUnit | null;
+  nozzleAngle: NozzleAngle | null;
+  focusDiffuse: FocusDiffuse | null;
+  airQualityTarget: AirQualityTarget | null;
+  /** Whether a humidifier dries its wick. */
+  wickDryingMode: boolean | null;
+  wickDryingSpeed: WickDryingSpeed | null;
   oscillationState: OscillationState | null;
   findAndFollowState: OscillationState | null;
   cleanCycleState: CleanCycleState | null;
@@ -176,6 +218,14 @@ export interface EnvironmentalCareState {
   outerFilterLifeInPercent: number | null;
   innerFilterType: InnerFilterType | null;
   outerFilterType: OuterFilterType | null;
+  /** What the machine's heater is doing now, beside the `heatMode` it is
+   * set to. */
+  heatState: HeatMode | null;
+  /** What the machine's humidifier is doing now, beside the
+   * `humidificationMode` it is set to. */
+  humidificationState: HumidificationMode | null;
+  wickDryingState: WickDryingState | null;
+  wickDryingTimeRemainingInMinutes: number | null;
 }
 
 /** The fields of `EnvironmentalCareState` the machine reports and is not
@@ -190,7 +240,11 @@ export type EnvironmentalCareReading =
   | "innerFilterLifeInPercent"
   | "outerFilterLifeInPercent"
   | "innerFilterType"
-  | "outerFilterType";
+  | "outerFilterType"
+  | "heatState"
+  | "humidificationState"
+  | "wickDryingState"
+  | "wickDryingTimeRemainingInMinutes";
 
 /** A partial `EnvironmentalCareState` without its readings, as
  * `EnvironmentalCareClient.setState` takes it: set only the fields to

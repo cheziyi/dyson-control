@@ -150,13 +150,12 @@ export class EnvironmentalCareClient {
   }
 
   /** Changes part of the state, with one command and without reading the
-   * machine first. An `autoMode`, a `fanSpeed`, a `tiltAngleInDegrees` or a
-   * `findAndFollowMode` other than `off` also switches the machine on, a
-   * `fanPower` of `false` its sleep timer off, and an `oscillationAngles` or
-   * an `oscillationPresetAngleInDegrees` its oscillation on. It rejects with
-   * an `Error`, and sends nothing, for a field or a value `capabilities`
-   * says the machine does not take. It resolves once the broker has the
-   * command, not once the machine has acted on it: `getState` then tells. */
+   * machine first. Most fields also switch a later machine on, and some set
+   * a field beside them, as the README's "Changing state" lists. It rejects
+   * with an `Error`, and sends nothing, for a field or a value
+   * `capabilities` says the machine does not take. It resolves once the
+   * broker has the command, not once the machine has acted on it:
+   * `getState` then tells. */
   async setState(control: EnvironmentalCareControl): Promise<void> {
     const fields = fieldsNotTaken(this.capabilities, control);
     if (fields.length > 0) {
@@ -317,6 +316,22 @@ function fieldsNotTaken(
       control.findAndFollowMode,
     ),
     waterHardness: takes(capabilities.waterHardnesses, control.waterHardness),
+    childLockMode: capabilities.childLockMode,
+    temperatureUnit: takes(
+      capabilities.temperatureUnits,
+      control.temperatureUnit,
+    ),
+    nozzleAngle: takes(capabilities.nozzleAngles, control.nozzleAngle),
+    focusDiffuse: takes(capabilities.focusDiffuses, control.focusDiffuse),
+    airQualityTarget: takes(
+      capabilities.airQualityTargets,
+      control.airQualityTarget,
+    ),
+    wickDryingMode: capabilities.wickDryingMode,
+    wickDryingSpeed: takes(
+      capabilities.wickDryingSpeeds,
+      control.wickDryingSpeed,
+    ),
   };
   return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).filter(
     (field) => control[field] !== undefined && taken[field] === false,
