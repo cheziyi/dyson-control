@@ -11,7 +11,13 @@ export const CLOUD_ORIGINS = {
 
 export const CLOUD_CHINA_COUNTRY = "CN";
 
+export const CLOUD_LOGIN_CODE_USER_STATUS = {
+  accountStatus: "ACTIVE",
+  authenticationMethod: "EMAIL_PASSWORD_2FA",
+} as const;
+
 export const CLOUD_ROUTES = {
+  userStatus: "/v3/userregistration/email/userstatus",
   loginCode: "/v3/userregistration/email/auth",
   login: "/v3/userregistration/email/verify",
   manifest: "/v3/manifest",

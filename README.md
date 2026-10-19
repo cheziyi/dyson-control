@@ -69,7 +69,7 @@ await client.disconnect();
 | Call | Does |
 | --- | --- |
 | `getCountries()` | Resolves with the countries the cloud registers accounts in, such as `["GB", "US"]`, and takes no account |
-| `requestLoginCode({ email, country, culture })` | Has the cloud email a code, and resolves with a `challengeId` |
+| `requestLoginCode({ email, country, culture })` | Asks the cloud for the account's status, has it email a code, and resolves with a `challengeId`. Rejects with status 401 for an address the cloud emails no code for |
 | `login({ email, password, challengeId, otpCode, country, culture })` | Resolves with a `DysonAccount`: `accountId`, `token`, `tokenType`, `country` and `culture` |
 | `getMachines(account)` | Resolves with one `DysonMachine` for each machine of the account that the cloud broker reaches, of every category |
 
@@ -272,7 +272,7 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 
 | `httpStatusCode` | Meaning |
 | --- | --- |
-| 401 | The cloud rejected the login or the account's token, or the broker rejected the credentials the cloud issued or the subscription to the machine's topic |
+| 401 | The cloud emails no login code for the address, rejected the login or the account's token, or the broker rejected the credentials the cloud issued or the subscription to the machine's topic |
 | 501 | The machine is on the RabbitMQ broker, which no client connects to: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
 | 502 | The cloud answered with a reply that does not parse, or the machine with a message that lacks its fields |
 | 503 | The cloud or the broker refused or dropped the connection (a `DysonConnectionError`), or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |

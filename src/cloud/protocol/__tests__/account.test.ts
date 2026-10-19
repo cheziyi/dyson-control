@@ -3,12 +3,14 @@ import { DysonError } from "../../../error.js";
 import {
   buildLoginCodeRequest,
   buildLoginRequest,
+  buildUserStatusRequest,
   encodeAccountToken,
   encodeCloudOrigin,
   encodeUserAgent,
   parseCloudReply,
   parseLoginCodeReply,
   parseLoginReply,
+  parseUserStatusReply,
 } from "../account.js";
 
 const REGION = { country: "GB", culture: "en-GB" };
@@ -34,6 +36,66 @@ describe("encodeAccountToken", () => {
     expect(encodeAccountToken({ token: "abc", tokenType: "Bearer" })).toEqual({
       Authorization: "Bearer abc",
     });
+  });
+});
+
+describe("the user status", () => {
+  it("is requested for an email address", () => {
+    expect(buildUserStatusRequest("me@example.com")).toEqual({
+      email: "me@example.com",
+    });
+  });
+
+  it("passes an active account that logs in with a code", () => {
+    expect(() =>
+      parseUserStatusReply(
+        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PASSWORD_2FA"}',
+      ),
+    ).not.toThrow();
+  });
+
+  it.each(["UNREGISTERED", "NEEDS_ACTIVATION"])(
+    "throws status 401 for an accountStatus of %s",
+    (accountStatus) => {
+      expect(() =>
+        parseUserStatusReply(
+          JSON.stringify({
+            accountStatus,
+            authenticationMethod: "EMAIL_PASSWORD_2FA",
+          }),
+        ),
+      ).toThrow(
+        new DysonError(
+          `The Dyson cloud emails no login code for an accountStatus of ${accountStatus}`,
+          401,
+        ),
+      );
+    },
+  );
+
+  it("throws status 401 for an authenticationMethod of EMAIL_PASSWORD", () => {
+    expect(() =>
+      parseUserStatusReply(
+        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PASSWORD"}',
+      ),
+    ).toThrow(
+      new DysonError(
+        "The Dyson cloud emails no login code for an authenticationMethod of EMAIL_PASSWORD",
+        401,
+      ),
+    );
+  });
+
+  it("throws status 502 for a reply without an accountStatus", () => {
+    expect(() =>
+      parseUserStatusReply('{"authenticationMethod":"EMAIL_PASSWORD_2FA"}'),
+    ).toThrow(new DysonError("The Dyson cloud sent no accountStatus", 502));
+  });
+
+  it("throws status 502 for a reply without an authenticationMethod", () => {
+    expect(() => parseUserStatusReply('{"accountStatus":"ACTIVE"}')).toThrow(
+      new DysonError("The Dyson cloud sent no authenticationMethod", 502),
+    );
   });
 });
 

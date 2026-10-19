@@ -6,8 +6,10 @@ import type {
 import {
   buildLoginCodeRequest,
   buildLoginRequest,
+  buildUserStatusRequest,
   parseLoginCodeReply,
   parseLoginReply,
+  parseUserStatusReply,
 } from "./protocol/account.js";
 import { CLOUD_ROUTES } from "./protocol/tables.js";
 import { DysonCloudTransport } from "./transport.js";
@@ -37,18 +39,31 @@ export interface RequestLoginCodeOptions extends DysonRegion {
   userAgent?: string;
 }
 
-/** Has the cloud email a login code to the account's address, and resolves
- * with the `challengeId` to pass to `login` with that code. It rejects with
- * a `DysonError` when the request fails, and never retries: see
- * DESIGN.md#retries. */
+/** Asks the cloud for the account's status, then has it email a login code
+ * to the account's address, and resolves with the `challengeId` to pass to
+ * `login` with that code. It rejects with a `DysonError` when a request
+ * fails, with status 401 for an address the cloud emails no code for, and
+ * never retries: see DESIGN.md#retries. */
 export async function requestLoginCode(
   options: RequestLoginCodeOptions,
 ): Promise<string> {
+  const region = withDefaults(options);
+  const transport = new DysonCloudTransport(options);
+  // The cloud refuses the code with HTTP 401 for an account whose status it
+  // was not asked for first: see DESIGN.md#a-login-code-after-the-user-status.
+  parseUserStatusReply(
+    await transport.send({
+      method: "POST",
+      path: CLOUD_ROUTES.userStatus,
+      query: { country: region.country },
+      jsonBody: buildUserStatusRequest(options.email),
+    }),
+  );
   return parseLoginCodeReply(
-    await new DysonCloudTransport(options).send({
+    await transport.send({
       method: "POST",
       path: CLOUD_ROUTES.loginCode,
-      query: withDefaults(options),
+      query: region,
       jsonBody: buildLoginCodeRequest(options.email),
     }),
   );

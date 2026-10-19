@@ -1,13 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { DysonError } from "../../error.js";
 import { login, requestLoginCode } from "../login.js";
-import { ACCOUNT, json, reset, useMockCloud } from "./mocks/cloud.js";
+import {
+  ACCOUNT,
+  type CloudRequest,
+  json,
+  reset,
+  useMockCloud,
+} from "./mocks/cloud.js";
 
 const cloud = useMockCloud();
 
 describe("requestLoginCode", () => {
-  it("posts the email address and resolves with the challengeId", async () => {
-    cloud.reply = () => json({ challengeId: "c-1" });
+  const ACTIVE = {
+    accountStatus: "ACTIVE",
+    authenticationMethod: "EMAIL_PASSWORD_2FA",
+  };
+
+  function replyAs(status: unknown): (request: CloudRequest) => Response {
+    return (request) =>
+      request.url.includes("/userstatus")
+        ? json(status)
+        : json({ challengeId: "c-1" });
+  }
+
+  it("asks for the user status, then posts the email address and resolves with the challengeId", async () => {
+    cloud.reply = replyAs(ACTIVE);
 
     await expect(
       requestLoginCode({
@@ -20,6 +38,15 @@ describe("requestLoginCode", () => {
     expect(cloud.requests).toMatchObject([
       {
         method: "POST",
+        url: "https://appapi.cp.dyson.com/v3/userregistration/email/userstatus?country=GB",
+        headers: {
+          "User-Agent": "dyson-control",
+          "Content-Type": "application/json",
+        },
+        body: { email: "me@example.com" },
+      },
+      {
+        method: "POST",
         url: "https://appapi.cp.dyson.com/v3/userregistration/email/auth?country=GB&culture=en-GB",
         headers: {
           "User-Agent": "dyson-control",
@@ -28,11 +55,29 @@ describe("requestLoginCode", () => {
         body: { email: "me@example.com" },
       },
     ]);
-    expect(cloud.requests[0]?.headers).not.toHaveProperty("Authorization");
+    for (const request of cloud.requests) {
+      expect(request.headers).not.toHaveProperty("Authorization");
+    }
+  });
+
+  it("rejects with status 401, and asks for no code, for an address the cloud emails no code for", async () => {
+    cloud.reply = replyAs({
+      accountStatus: "UNREGISTERED",
+      authenticationMethod: "EMAIL_PASSWORD_2FA",
+    });
+
+    await expect(requestLoginCode({ email: "me@example.com" })).rejects.toEqual(
+      new DysonError(
+        "The Dyson cloud emails no login code for an accountStatus of UNREGISTERED",
+        401,
+      ),
+    );
+
+    expect(cloud.requests).toHaveLength(1);
   });
 
   it("sends the user agent it is given in place of its own", async () => {
-    cloud.reply = () => json({ challengeId: "c-1" });
+    cloud.reply = replyAs(ACTIVE);
 
     await requestLoginCode({
       email: "me@example.com",
@@ -41,23 +86,24 @@ describe("requestLoginCode", () => {
       userAgent: "my-app/1.0",
     });
 
-    expect(cloud.requests[0]?.headers).toMatchObject({
-      "User-Agent": "my-app/1.0",
-    });
+    for (const request of cloud.requests) {
+      expect(request.headers).toMatchObject({ "User-Agent": "my-app/1.0" });
+    }
   });
 
   it("sends the country US and the culture en-US when it is given neither", async () => {
-    cloud.reply = () => json({ challengeId: "c-1" });
+    cloud.reply = replyAs(ACTIVE);
 
     await requestLoginCode({ email: "me@example.com" });
 
-    expect(cloud.requests[0]?.url).toBe(
+    expect(cloud.requests.map((request) => request.url)).toEqual([
+      "https://appapi.cp.dyson.com/v3/userregistration/email/userstatus?country=US",
       "https://appapi.cp.dyson.com/v3/userregistration/email/auth?country=US&culture=en-US",
-    );
+    ]);
   });
 
   it("asks the cloud for China for an account there", async () => {
-    cloud.reply = () => json({ challengeId: "c-2" });
+    cloud.reply = replyAs(ACTIVE);
 
     await requestLoginCode({
       email: "me@example.com",
@@ -65,8 +111,21 @@ describe("requestLoginCode", () => {
       culture: "zh-CN",
     });
 
-    expect(cloud.requests[0]?.url).toBe(
+    expect(cloud.requests.map((request) => request.url)).toEqual([
+      "https://appapi.cp.dyson.cn/v3/userregistration/email/userstatus?country=CN",
       "https://appapi.cp.dyson.cn/v3/userregistration/email/auth?country=CN&culture=zh-CN",
+    ]);
+  });
+
+  it("rejects with the cloud's status for a code it refuses", async () => {
+    cloud.reply = (request) =>
+      request.url.includes("/userstatus") ? json(ACTIVE) : json({}, 429);
+
+    await expect(requestLoginCode({ email: "me@example.com" })).rejects.toEqual(
+      new DysonError(
+        "Dyson request to /v3/userregistration/email/auth failed",
+        429,
+      ),
     );
   });
 
