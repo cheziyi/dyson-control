@@ -57,3 +57,14 @@ export const CLOUD_AUTHORIZER_PARAMETERS = {
   name: "x-amz-customauthorizer-name",
   signature: "x-amz-customauthorizer-signature",
 } as const;
+
+/** How the manifest encrypts `localBrokerCredentials`: AES-256 in CBC mode,
+ * the same key and IV for every machine. */
+export const CLOUD_LOCAL_BROKER_CREDENTIALS_CIPHER = {
+  algorithm: "aes-256-cbc",
+  key: Buffer.from([
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+    22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+  ]),
+  iv: Buffer.alloc(16),
+} as const;

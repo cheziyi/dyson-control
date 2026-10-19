@@ -29,7 +29,7 @@ describe("buildMachineCommand", () => {
 
   it("writes the time in whole seconds and the mode reason of the cloud", () => {
     expect(
-      JSON.parse(buildMachineCommand("REQUEST-CURRENT-STATE", time)),
+      JSON.parse(buildMachineCommand("REQUEST-CURRENT-STATE", time, "remote")),
     ).toEqual({
       msg: "REQUEST-CURRENT-STATE",
       time: "2026-10-13T08:09:10Z",
@@ -37,10 +37,18 @@ describe("buildMachineCommand", () => {
     });
   });
 
+  it("writes the mode reason of the LAN for the machine's own broker", () => {
+    expect(
+      JSON.parse(buildMachineCommand("REQUEST-CURRENT-STATE", time, "local")),
+    ).toMatchObject({ "mode-reason": "LAPP" });
+  });
+
   it("writes the fields beside msg", () => {
     expect(
       JSON.parse(
-        buildMachineCommand("STATE-SET", time, { data: { fnsp: "0005" } }),
+        buildMachineCommand("STATE-SET", time, "remote", {
+          data: { fnsp: "0005" },
+        }),
       ),
     ).toEqual({
       msg: "STATE-SET",

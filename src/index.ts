@@ -76,3 +76,7 @@ export {
   type WickDryingState,
 } from "./environmentalCare/models/state.js";
 export { DysonConnectionError, DysonError } from "./error.js";
+export {
+  HOST_TYPES,
+  type HostType,
+} from "./machine/models/hostType.js";

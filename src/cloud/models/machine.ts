@@ -49,4 +49,7 @@ export interface DysonMachine {
   firmwareCapabilities?: string[];
   /** Left out means `awsIot`. */
   remoteBrokerType?: RemoteBrokerType;
+  /** The password of the machine's own broker on the LAN, which a client
+   * given a `host` logs in with. */
+  apPasswordHash?: string;
 }

@@ -1,17 +1,5 @@
 import { connectAsync, type MqttClient } from "mqtt";
 import { DysonConnectionError, DysonError } from "../error.js";
-import type { DysonMachine } from "./models/machine.js";
-import {
-  buildIotCredentialsRequest,
-  encodeIotUsername,
-  parseIotCredentials,
-} from "./protocol/iotCredentials.js";
-import {
-  CLOUD_BROKER_ALPN_PROTOCOL,
-  CLOUD_BROKER_PORT,
-  CLOUD_ROUTES,
-} from "./protocol/tables.js";
-import type { DysonCloudTransport } from "./transport.js";
 
 // The CONNACK return codes for a username or password the broker rejects,
 // and for a client it does not authorise.
@@ -20,6 +8,16 @@ const REFUSED_CREDENTIALS_CODES = new Set([4, 5]);
 // What a SUBACK grants a subscription the broker refuses, in place of a
 // quality of service.
 const REFUSED_SUBSCRIPTION_CODE = 128;
+
+/** Where a connection goes and what it logs in with: the cloud's broker,
+ * from `getCloudBroker`, or a machine's own. */
+export interface DysonBroker {
+  url: string;
+  clientId: string;
+  username: string;
+  password?: string;
+  ALPNProtocols?: string[];
+}
 
 export interface DysonConnectionOptions {
   /** The topics to receive from, each subscribed before `open`
@@ -36,48 +34,28 @@ export interface DysonConnectionOptions {
   onClose: () => void;
 }
 
-/** One MQTT connection to the cloud broker, for one machine. It never
- * reconnects: the credentials it was opened with are for one connection, so
- * its owner opens another: see DESIGN.md#credentials-for-one-connection. */
+/** One MQTT connection to a broker, for one machine. It never reconnects:
+ * the cloud's credentials are for one connection, so its owner opens
+ * another: see DESIGN.md#credentials-for-one-connection. */
 export class DysonConnection {
   private constructor(private readonly client: MqttClient) {}
 
-  /** Asks the cloud for the machine's broker credentials through
-   * `transport`, and connects with them.
+  /** Connects to `broker` and subscribes to `options.topics`.
    *
-   * It rejects with whatever `transport` throws, with a `DysonError` with
-   * status 401 when the broker refuses the credentials or the subscription,
-   * 504 when it does not answer in time and 501 for a machine on the
-   * RabbitMQ broker, and with a `DysonConnectionError` for any other
-   * failure. */
+   * It rejects with a `DysonError` with status 401 when the broker refuses
+   * the credentials or the subscription and 504 when it does not answer in
+   * time, and with a `DysonConnectionError` for any other failure. */
   static async open(
-    machine: DysonMachine,
-    transport: DysonCloudTransport,
+    broker: DysonBroker,
     options: DysonConnectionOptions,
   ): Promise<DysonConnection> {
-    if (machine.remoteBrokerType === "rabbitMq") {
-      throw new DysonError(
-        "A machine on the RabbitMQ broker is not supported",
-        501,
-      );
-    }
-    const credentials = parseIotCredentials(
-      await transport.send({
-        method: "POST",
-        path: CLOUD_ROUTES.iotCredentials,
-        jsonBody: buildIotCredentialsRequest(machine.serialNumber),
-      }),
-    );
-
+    const { url, ...login } = broker;
     let client: MqttClient;
     try {
       client = await connectAsync(
-        `mqtts://${credentials.endpoint}:${CLOUD_BROKER_PORT}`,
+        url,
         {
-          // On port 443 the broker tells MQTT from HTTPS by this.
-          ALPNProtocols: [CLOUD_BROKER_ALPN_PROTOCOL],
-          clientId: credentials.clientId,
-          username: encodeIotUsername(credentials),
+          ...login,
           connectTimeout: options.timeoutInMs,
           // No reconnecting with credentials that were for one connection.
           reconnectPeriod: 0,

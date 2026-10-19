@@ -38,6 +38,14 @@ describe("the cloud tables", () => {
         name: "x-amz-customauthorizer-name",
         signature: "x-amz-customauthorizer-signature",
       },
+      CLOUD_LOCAL_BROKER_CREDENTIALS_CIPHER: {
+        algorithm: "aes-256-cbc",
+        key: Buffer.from(
+          "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+          "hex",
+        ),
+        iv: Buffer.from("00000000000000000000000000000000", "hex"),
+      },
     });
   });
 });

@@ -43,14 +43,14 @@ function answer(productState: Record<string, string> = PRODUCT_STATE): void {
 
 function client(
   machine: DysonMachine = MACHINE,
-  options: Partial<EnvironmentalCareClientOptions> = {},
+  options: Omit<EnvironmentalCareClientOptions, "account" | "host"> = {},
 ): EnvironmentalCareClient {
   return new EnvironmentalCareClient(machine, { account: ACCOUNT, ...options });
 }
 
 async function connected(
   machine: DysonMachine = MACHINE,
-  options: Partial<EnvironmentalCareClientOptions> = {},
+  options: Omit<EnvironmentalCareClientOptions, "account" | "host"> = {},
 ): Promise<EnvironmentalCareClient> {
   const purifier = client(machine, options);
   await purifier.connect();
@@ -104,6 +104,15 @@ describe("EnvironmentalCareClient", () => {
     expect(mock.broker.published).toMatchObject([
       { topic: COMMAND_TOPIC, message: { msg: "REQUEST-CURRENT-STATE" } },
     ]);
+  });
+
+  it("says which broker its connection goes through", async () => {
+    const purifier = client();
+    expect(purifier.hostType).toBeNull();
+
+    await purifier.connect();
+
+    expect(purifier.hostType).toBe("remote");
   });
 
   it("receives from the topics of the state and of the faults", async () => {

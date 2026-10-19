@@ -13,7 +13,9 @@ const PURIFIER = {
   connectedConfiguration: {
     mqtt: {
       remoteBrokerType: "wss",
-      localBrokerCredentials: "ignored",
+      // {"serial":"A1B-EU-ABC1234D","apPasswordHash":"hash-1"}, encrypted.
+      localBrokerCredentials:
+        "3cmOp2VDzGuxH8RgI2kEFqbOjswMRV76fcH/LU5/HN7WkiIBtsYWyKDtPizwFEHX+l6g64SdiHHYnZOJa7kAfw==",
       mqttRootTopicLevel: "438E",
     },
     firmware: {
@@ -38,8 +40,30 @@ describe("parseMachines", () => {
         productName: "Purifier",
         firmwareVersion: "438MPF.00.01.007.0002",
         remoteBrokerType: "awsIot",
+        apPasswordHash: "hash-1",
       },
     ]);
+  });
+
+  it.each([
+    ["is no base64 of the cipher", "not encrypted"],
+    ["is empty", ""],
+  ])("leaves out the apPasswordHash of credentials that %s", (_name, value) => {
+    const [machine] = parseMachines(
+      JSON.stringify([
+        {
+          ...PURIFIER,
+          connectedConfiguration: {
+            ...PURIFIER.connectedConfiguration,
+            mqtt: {
+              ...PURIFIER.connectedConfiguration.mqtt,
+              localBrokerCredentials: value,
+            },
+          },
+        },
+      ]),
+    );
+    expect(machine).not.toHaveProperty("apPasswordHash");
   });
 
   it("leaves out a root topic level the cloud names none for", () => {
