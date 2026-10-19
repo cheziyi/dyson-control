@@ -72,6 +72,8 @@ export interface EnvironmentalCareCapabilities {
   airQualityTargets: AirQualityTarget[];
   wickDryingMode: boolean;
   wickDryingSpeeds: WickDryingSpeed[];
+  uvMode: boolean;
+  ionisationMode: boolean;
   /** Whether the machine measures the air, and so reports the pollutant
    * readings of `EnvironmentalCareSensors`. */
   hasAirQualitySensor: boolean;

@@ -26,9 +26,11 @@ import {
   ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_RANGE,
   ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES,
+  ENVIRONMENTAL_CARE_MODELS_WITH_UV_AND_IONISATION,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_ANGLE_WIDTHS,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_RANGE,
+  ENVIRONMENTAL_CARE_TYPE_MODELS_WITH_UV_AND_IONISATION,
   ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION,
   ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITH_CHILD_LOCK,
@@ -40,6 +42,7 @@ import {
   ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITH_NOZZLE_ANGLE,
   ENVIRONMENTAL_CARE_TYPES_WITH_TILT_OSCILLATION,
+  ENVIRONMENTAL_CARE_TYPES_WITH_UV,
   ENVIRONMENTAL_CARE_TYPES_WITH_WICK_DRYING,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR,
@@ -48,6 +51,7 @@ import {
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_FILTER_LIFE,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_TEMPERATURE_UNIT,
+  ENVIRONMENTAL_CARE_TYPES_WITHOUT_UV_AND_IONISATION_BY_MODEL,
   ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW,
   ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION,
   ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_TEMPERATURE_UNIT,
@@ -68,6 +72,7 @@ export function decodeEnvironmentalCareCapabilities(
     machine.type,
   );
   const typeAndVariant = machine.type + (machine.variant ?? "");
+  const uvAndIonisation = takesUvAndIonisation(machine);
   const oscillationAngles =
     oscillation === "advanced" &&
     firmwareCapabilities.includes(
@@ -159,12 +164,31 @@ export function decodeEnvironmentalCareCapabilities(
     )
       ? [...WICK_DRYING_SPEEDS]
       : [],
+    uvMode:
+      uvAndIonisation ||
+      ENVIRONMENTAL_CARE_TYPES_WITH_UV.includes(machine.type),
+    ionisationMode: uvAndIonisation,
     hasAirQualitySensor:
       !ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR.includes(
         machine.type,
       ),
     filters: decodeFilters(machine.type, type),
   };
+}
+
+function takesUvAndIonisation(machine: DysonMachine): boolean {
+  if (machine.model === undefined) {
+    return false;
+  }
+  return (
+    (ENVIRONMENTAL_CARE_MODELS_WITH_UV_AND_IONISATION.includes(machine.model) &&
+      !ENVIRONMENTAL_CARE_TYPES_WITHOUT_UV_AND_IONISATION_BY_MODEL.includes(
+        machine.type,
+      )) ||
+    ENVIRONMENTAL_CARE_TYPE_MODELS_WITH_UV_AND_IONISATION.includes(
+      `${machine.type}/${machine.model}`,
+    )
+  );
 }
 
 // A basic oscillation goes on and off alone, and pauses with no idle mode.

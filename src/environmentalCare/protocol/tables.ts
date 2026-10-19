@@ -208,6 +208,22 @@ export const ENVIRONMENTAL_CARE_TYPES_WITH_WICK_DRYING: readonly string[] = [
   "965",
 ];
 
+/** The models that take a `uvMode` and an `ionisationMode`, of any type but
+ * those in `ENVIRONMENTAL_CARE_TYPES_WITHOUT_UV_AND_IONISATION_BY_MODEL`. */
+export const ENVIRONMENTAL_CARE_MODELS_WITH_UV_AND_IONISATION: readonly string[] =
+  ["BP10-BA"];
+
+export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_UV_AND_IONISATION_BY_MODEL: readonly string[] =
+  ["831"];
+
+/** Each a type and its model joined by a slash: a `917` of model `EAST` is
+ * a `917/EAST`. */
+export const ENVIRONMENTAL_CARE_TYPE_MODELS_WITH_UV_AND_IONISATION: readonly string[] =
+  ["917/EAST", "918/EAST", "994/MP01-BA", "997/EAST"];
+
+/** The types that take a `uvMode` whatever their model. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_UV: readonly string[] = ["997"];
+
 /** What a machine's firmware can do, as the cloud names it. A later type
  * with either oscillation capability takes oscillation angles: a preset in
  * `ancp` with `advanceOscillationDay0` alone, and two in `osal` and
@@ -287,6 +303,8 @@ export const ENVIRONMENTAL_CARE_FIELDS = {
   wickDryingTimeRemaining: "wdtr",
   heatState: "hsta",
   humidificationState: "msta",
+  uvMode: "uvse",
+  ionisationMode: "ioni",
   filterLife: "filf",
   innerFilterLife: "cflr",
   outerFilterLife: "hflr",

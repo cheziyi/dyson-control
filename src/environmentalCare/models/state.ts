@@ -205,6 +205,8 @@ export interface EnvironmentalCareState {
   /** Whether a humidifier dries its wick. */
   wickDryingMode: boolean | null;
   wickDryingSpeed: WickDryingSpeed | null;
+  uvMode: boolean | null;
+  ionisationMode: boolean | null;
   oscillationState: OscillationState | null;
   findAndFollowState: OscillationState | null;
   cleanCycleState: CleanCycleState | null;

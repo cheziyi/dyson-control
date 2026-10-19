@@ -111,8 +111,8 @@ const client = new EnvironmentalCareClient(machine, { account });
 ```
 
 A machine of `serialNumber` and `type` alone connects, but its
-[capabilities](#capabilities) read as those of a machine without a variant
-or firmware capabilities.
+[capabilities](#capabilities) read as those of a machine without a variant,
+a model or firmware capabilities.
 
 `type` is the cloud's code for the kind of machine, such as `438`, as
 `getMachines` reports it. It tells the client how the machine holds its
@@ -132,7 +132,8 @@ A machine from `getMachines` also carries `remoteBrokerType`, and
 ### Capabilities
 
 `client.capabilities` says which fields of `setState()` the machine takes.
-It is read from the machine's `type`, `variant` and `firmwareCapabilities`,
+It is read from the machine's `type`, `variant`, `model` and
+`firmwareCapabilities`,
 without asking the machine, so it answers before `connect()`. Show a control
 only where it says the machine takes it: `setState()` rejects the rest.
 
@@ -156,6 +157,8 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `focusDiffuses` | `focus` and `diffuse` for a `455`, or an empty list |
 | `airQualityTargets` | `good`, `sensitive` and `verySensitive` for the first generation, or an empty list |
 | `wickDryingMode`, `wickDryingSpeeds` | `true`, and `slow`, `normal` and `fast`, for a `965`; or `false` and an empty list |
+| `uvMode` | `true` for a machine of model `BP10-BA` but an `831`, a `917` or `918` of model `EAST`, a `994` of model `MP01-BA`, and every `997` |
+| `ionisationMode` | `true` for the machines `uvMode` is, but a `997` of a model other than `EAST` |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
 | `filters` | `filter` for the first generation, `innerFilter` and `outerFilter` for a later machine that reports its filters' life, or an empty list: what [`resetFilterLife()`](#filters-and-faults) takes |
 
@@ -192,6 +195,7 @@ reports none, so a fan without a heater reads `heatMode: null`.
 | `airQualityTarget` | `good`, `sensitive` or `verySensitive`: the index auto mode aims for, 4, 3 or 1 |
 | `wickDryingMode` | Whether a humidifier dries its wick |
 | `wickDryingSpeed` | `slow`, `normal` or `fast`: in 60, 45 or 30 minutes |
+| `uvMode`, `ionisationMode` | Whether the machine's UV light and its ioniser are on |
 
 The rest of the state are readings, which `setState()` does not take:
 
