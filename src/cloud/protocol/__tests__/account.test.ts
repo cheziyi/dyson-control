@@ -3,12 +3,14 @@ import { DysonError } from "../../../error.js";
 import {
   buildLoginCodeRequest,
   buildLoginRequest,
+  buildUserStatusRequest,
   encodeAccountToken,
   encodeCloudOrigin,
   encodeUserAgent,
   parseCloudReply,
   parseLoginCodeReply,
   parseLoginReply,
+  parseUserStatusReply,
 } from "../account.js";
 
 const REGION = { country: "GB", culture: "en-GB" };
@@ -34,6 +36,28 @@ describe("encodeAccountToken", () => {
     expect(encodeAccountToken({ token: "abc", tokenType: "Bearer" })).toEqual({
       Authorization: "Bearer abc",
     });
+  });
+});
+
+describe("the user status", () => {
+  it("is requested for an email address", () => {
+    expect(buildUserStatusRequest("me@example.com")).toEqual({
+      email: "me@example.com",
+    });
+  });
+
+  it("is answered with an accountStatus", () => {
+    expect(
+      parseUserStatusReply(
+        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PWD_2FA"}',
+      ),
+    ).toBe("ACTIVE");
+  });
+
+  it("throws status 502 for a reply without one", () => {
+    expect(() => parseUserStatusReply("{}")).toThrow(
+      new DysonError("The Dyson cloud sent no accountStatus", 502),
+    );
   });
 });
 

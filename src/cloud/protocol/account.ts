@@ -27,6 +27,20 @@ export function encodeAccountToken(
   return { Authorization: `${account.tokenType} ${account.token}` };
 }
 
+export function buildUserStatusRequest(email: string): unknown {
+  return { email };
+}
+
+/** The `accountStatus` of a reply to a request for the user status, such as
+ * `ACTIVE` or `UNREGISTERED`. */
+export function parseUserStatusReply(text: string): string {
+  const { accountStatus } = parseCloudReply(text);
+  if (typeof accountStatus !== "string") {
+    throw new DysonError("The Dyson cloud sent no accountStatus", 502);
+  }
+  return accountStatus;
+}
+
 export function buildLoginCodeRequest(email: string): unknown {
   return { email };
 }

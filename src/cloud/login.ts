@@ -1,3 +1,4 @@
+import { DysonError } from "../error.js";
 import type {
   DysonAccount,
   DysonRegion,
@@ -6,10 +7,15 @@ import type {
 import {
   buildLoginCodeRequest,
   buildLoginRequest,
+  buildUserStatusRequest,
   parseLoginCodeReply,
   parseLoginReply,
+  parseUserStatusReply,
 } from "./protocol/account.js";
-import { CLOUD_ROUTES } from "./protocol/tables.js";
+import {
+  CLOUD_ACTIVE_ACCOUNT_STATUS,
+  CLOUD_ROUTES,
+} from "./protocol/tables.js";
 import { DysonCloudTransport } from "./transport.js";
 
 /** The global cloud logs an account in under a country other than its own,
@@ -37,18 +43,37 @@ export interface RequestLoginCodeOptions extends DysonRegion {
   userAgent?: string;
 }
 
-/** Has the cloud email a login code to the account's address, and resolves
- * with the `challengeId` to pass to `login` with that code. It rejects with
- * a `DysonError` when the request fails, and never retries: see
- * DESIGN.md#retries. */
+/** Asks the cloud for the account's status, then has it email a login code
+ * to the account's address, and resolves with the `challengeId` to pass to
+ * `login` with that code. It rejects with a `DysonError` when a request
+ * fails, with status 401 for an address the cloud has no active account for,
+ * and never retries: see DESIGN.md#retries. */
 export async function requestLoginCode(
   options: RequestLoginCodeOptions,
 ): Promise<string> {
+  const region = withDefaults(options);
+  const transport = new DysonCloudTransport(options);
+  // The cloud refuses the code with HTTP 401 for an account whose status it
+  // was not asked for first: see DESIGN.md#a-login-code-after-the-user-status.
+  const accountStatus = parseUserStatusReply(
+    await transport.send({
+      method: "POST",
+      path: CLOUD_ROUTES.userStatus,
+      query: { country: region.country },
+      jsonBody: buildUserStatusRequest(options.email),
+    }),
+  );
+  if (accountStatus !== CLOUD_ACTIVE_ACCOUNT_STATUS) {
+    throw new DysonError(
+      `The Dyson cloud has no active account for ${options.email}: its status is ${accountStatus}`,
+      401,
+    );
+  }
   return parseLoginCodeReply(
-    await new DysonCloudTransport(options).send({
+    await transport.send({
       method: "POST",
       path: CLOUD_ROUTES.loginCode,
-      query: withDefaults(options),
+      query: region,
       jsonBody: buildLoginCodeRequest(options.email),
     }),
   );

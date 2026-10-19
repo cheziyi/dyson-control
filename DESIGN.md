@@ -304,6 +304,26 @@ and `withRetry`.
 - A caller that built commands from the tables depended on the codes the
   package exists to hide.
 
+## A login code after the user status
+
+`requestLoginCode` posts the address to `/v3/userregistration/email/userstatus`
+before it posts it to `/v3/userregistration/email/auth`, and asks for no code
+unless the cloud answers an `accountStatus` of `ACTIVE`.
+
+Rejected: posting the address to `/v3/userregistration/email/auth` alone.
+
+- The cloud answers HTTP 401, with no body, to a request for a code for an
+  active account whose status it was not asked for first. An account refused
+  eleven times in five minutes was sent a code by the first request that
+  followed a user status.
+
+Rejected: asking for the user status and ignoring what it answers.
+
+- The cloud answers HTTP 400, with no body, to a request for a code for an
+  address it has no account for, and the user status says so: its
+  `accountStatus` is `UNREGISTERED`. The package rejects with status 401 and
+  that status in the message, and sends nothing more.
+
 ## Headers
 
 The package sends one header of its own on every request to the cloud, a
