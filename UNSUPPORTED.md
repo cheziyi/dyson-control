@@ -10,7 +10,8 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | The password the RabbitMQ broker takes. The cloud answers the broker's host and port at `/v1/messageprocessor/devices/{serial}/connectionstatus`, and the broker takes the account's id as its username | No client connects to a machine whose `remoteBrokerType` is `rabbitMq`: it rejects with status 501 |
 | How long the cloud accepts an account's token, and whether it can be renewed without a new login code | A caller logs in again when calls reject with status 401 |
 | How long the cloud takes an account's status as asked for, before it refuses a code with HTTP 401 again | `requestLoginCode` asks for the status before each code: [DESIGN.md](DESIGN.md#a-login-code-after-the-user-status) |
-| What an `accountStatus` other than `ACTIVE` and `UNREGISTERED` stands for | `requestLoginCode` asks for a code for an `ACTIVE` account alone, and rejects with status 401 for any other |
+| How an account whose `accountStatus` is `NEEDS_ACTIVATION` is activated | `requestLoginCode` rejects with status 401 for it |
+| How an account whose `authenticationMethod` is `EMAIL_PASSWORD` logs in without a login code | `requestLoginCode` rejects with status 401 for it |
 | How long the broker accepts a set of credentials | A `MachineLink` asks for new ones for every connection: [DESIGN.md](DESIGN.md#credentials-for-one-connection) |
 
 ## Messages

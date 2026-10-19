@@ -308,7 +308,8 @@ and `withRetry`.
 
 `requestLoginCode` posts the address to `/v3/userregistration/email/userstatus`
 before it posts it to `/v3/userregistration/email/auth`, and asks for no code
-unless the cloud answers an `accountStatus` of `ACTIVE`.
+unless the cloud answers an `accountStatus` of `ACTIVE` and an
+`authenticationMethod` of `EMAIL_PASSWORD_2FA`.
 
 Rejected: posting the address to `/v3/userregistration/email/auth` alone.
 
@@ -323,6 +324,12 @@ Rejected: asking for the user status and ignoring what it answers.
   address it has no account for, and the user status says so: its
   `accountStatus` is `UNREGISTERED`. The package rejects with status 401 and
   that status in the message, and sends nothing more.
+
+Rejected: asking for a code for every `ACTIVE` account.
+
+- The MyDyson app asks for a code only for an `authenticationMethod` of
+  `EMAIL_PASSWORD_2FA`. An account whose `authenticationMethod` is
+  `EMAIL_PASSWORD` logs in without one, and the app asks for none for it.
 
 ## Headers
 

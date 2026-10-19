@@ -46,17 +46,55 @@ describe("the user status", () => {
     });
   });
 
-  it("is answered with an accountStatus", () => {
-    expect(
+  it("passes an active account that logs in with a code", () => {
+    expect(() =>
       parseUserStatusReply(
-        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PWD_2FA"}',
+        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PASSWORD_2FA"}',
       ),
-    ).toBe("ACTIVE");
+    ).not.toThrow();
   });
 
-  it("throws status 502 for a reply without one", () => {
-    expect(() => parseUserStatusReply("{}")).toThrow(
-      new DysonError("The Dyson cloud sent no accountStatus", 502),
+  it.each(["UNREGISTERED", "NEEDS_ACTIVATION"])(
+    "throws status 401 for an accountStatus of %s",
+    (accountStatus) => {
+      expect(() =>
+        parseUserStatusReply(
+          JSON.stringify({
+            accountStatus,
+            authenticationMethod: "EMAIL_PASSWORD_2FA",
+          }),
+        ),
+      ).toThrow(
+        new DysonError(
+          `The Dyson cloud emails no login code for an accountStatus of ${accountStatus}`,
+          401,
+        ),
+      );
+    },
+  );
+
+  it("throws status 401 for an authenticationMethod of EMAIL_PASSWORD", () => {
+    expect(() =>
+      parseUserStatusReply(
+        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PASSWORD"}',
+      ),
+    ).toThrow(
+      new DysonError(
+        "The Dyson cloud emails no login code for an authenticationMethod of EMAIL_PASSWORD",
+        401,
+      ),
+    );
+  });
+
+  it("throws status 502 for a reply without an accountStatus", () => {
+    expect(() =>
+      parseUserStatusReply('{"authenticationMethod":"EMAIL_PASSWORD_2FA"}'),
+    ).toThrow(new DysonError("The Dyson cloud sent no accountStatus", 502));
+  });
+
+  it("throws status 502 for a reply without an authenticationMethod", () => {
+    expect(() => parseUserStatusReply('{"accountStatus":"ACTIVE"}')).toThrow(
+      new DysonError("The Dyson cloud sent no authenticationMethod", 502),
     );
   });
 });

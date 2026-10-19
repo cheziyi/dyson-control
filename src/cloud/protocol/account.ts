@@ -4,7 +4,11 @@ import type {
   DysonRegion,
   LoginCredentials,
 } from "../models/account.js";
-import { CLOUD_CHINA_COUNTRY, CLOUD_ORIGINS } from "./tables.js";
+import {
+  CLOUD_CHINA_COUNTRY,
+  CLOUD_LOGIN_CODE_USER_STATUS,
+  CLOUD_ORIGINS,
+} from "./tables.js";
 
 /** The cloud an account's requests go to, or the global one for no
  * country. */
@@ -31,14 +35,31 @@ export function buildUserStatusRequest(email: string): unknown {
   return { email };
 }
 
-/** The `accountStatus` of a reply to a request for the user status, such as
- * `ACTIVE` or `UNREGISTERED`. */
-export function parseUserStatusReply(text: string): string {
-  const { accountStatus } = parseCloudReply(text);
+/** Throws a `DysonError` with status 401 for a user status the cloud emails
+ * no login code for: an `accountStatus` of `UNREGISTERED` or
+ * `NEEDS_ACTIVATION`, or an `authenticationMethod` of `EMAIL_PASSWORD`. */
+export function parseUserStatusReply(text: string): void {
+  const { accountStatus, authenticationMethod } = parseCloudReply(text);
   if (typeof accountStatus !== "string") {
     throw new DysonError("The Dyson cloud sent no accountStatus", 502);
   }
-  return accountStatus;
+  if (typeof authenticationMethod !== "string") {
+    throw new DysonError("The Dyson cloud sent no authenticationMethod", 502);
+  }
+  if (accountStatus !== CLOUD_LOGIN_CODE_USER_STATUS.accountStatus) {
+    throw new DysonError(
+      `The Dyson cloud emails no login code for an accountStatus of ${accountStatus}`,
+      401,
+    );
+  }
+  if (
+    authenticationMethod !== CLOUD_LOGIN_CODE_USER_STATUS.authenticationMethod
+  ) {
+    throw new DysonError(
+      `The Dyson cloud emails no login code for an authenticationMethod of ${authenticationMethod}`,
+      401,
+    );
+  }
 }
 
 export function buildLoginCodeRequest(email: string): unknown {

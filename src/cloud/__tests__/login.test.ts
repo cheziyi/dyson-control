@@ -14,11 +14,9 @@ const cloud = useMockCloud();
 describe("requestLoginCode", () => {
   const ACTIVE = {
     accountStatus: "ACTIVE",
-    authenticationMethod: "EMAIL_PWD_2FA",
+    authenticationMethod: "EMAIL_PASSWORD_2FA",
   };
 
-  /** Answers the user status with `status`, and the request for a code with
-   * a challengeId. */
   function replyAs(status: unknown): (request: CloudRequest) => Response {
     return (request) =>
       request.url.includes("/userstatus")
@@ -62,28 +60,20 @@ describe("requestLoginCode", () => {
     }
   });
 
-  it("rejects with status 401, and asks for no code, for an address the cloud has no active account for", async () => {
+  it("rejects with status 401, and asks for no code, for an address the cloud emails no code for", async () => {
     cloud.reply = replyAs({
       accountStatus: "UNREGISTERED",
-      authenticationMethod: "EMAIL_PWD_2FA",
+      authenticationMethod: "EMAIL_PASSWORD_2FA",
     });
 
     await expect(requestLoginCode({ email: "me@example.com" })).rejects.toEqual(
       new DysonError(
-        "The Dyson cloud has no active account for me@example.com: its status is UNREGISTERED",
+        "The Dyson cloud emails no login code for an accountStatus of UNREGISTERED",
         401,
       ),
     );
 
     expect(cloud.requests).toHaveLength(1);
-  });
-
-  it("rejects with status 502 for a user status without an accountStatus", async () => {
-    cloud.reply = replyAs({});
-
-    await expect(requestLoginCode({ email: "me@example.com" })).rejects.toEqual(
-      new DysonError("The Dyson cloud sent no accountStatus", 502),
-    );
   });
 
   it("sends the user agent it is given in place of its own", async () => {

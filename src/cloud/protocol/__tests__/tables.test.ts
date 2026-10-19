@@ -9,7 +9,10 @@ describe("the cloud tables", () => {
         china: "https://appapi.cp.dyson.cn",
       },
       CLOUD_CHINA_COUNTRY: "CN",
-      CLOUD_ACTIVE_ACCOUNT_STATUS: "ACTIVE",
+      CLOUD_LOGIN_CODE_USER_STATUS: {
+        accountStatus: "ACTIVE",
+        authenticationMethod: "EMAIL_PASSWORD_2FA",
+      },
       CLOUD_ROUTES: {
         userStatus: "/v3/userregistration/email/userstatus",
         loginCode: "/v3/userregistration/email/auth",
