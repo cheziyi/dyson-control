@@ -34,5 +34,4 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | What a machine means by an `oson` of `SCAN`, which it is never written | `oscillationMode` reads it as `scan`, and `setState` rejects it |
 | What a machine means by an `oscs` of `INIT`, `SCAN`, `ACS`, `ACM` or `NOD`, or a `sost` of `INIT`, and how an `ACS` differs from an `ACM` | `oscillationState` and `findAndFollowState` read each by Dyson's name for it |
 | What a machine means by an `ancp` of `SMRT`, which it is never written | `oscillationPresetAngleInDegrees` reads it as `null` |
-| Which machines have find and follow beside a `438` and a `527` of variant `N`, such as a `949` | `capabilities.findAndFollowModes` is empty for them, and `setProductState` writes `soon` |
 | Whether a machine of the first generation that is off switches on when it is written a field without `fmod` | `setState` and `resetFilterLife` send no `fmod` but with a `fanPower`, an `autoMode` or a `fanSpeed` |

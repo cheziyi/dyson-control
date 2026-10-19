@@ -263,9 +263,14 @@ capabilities.
   where the tables take each new fact as one list.
 
 `findAndFollowModes` holds find and follow's modes for a `438` and a `527`
-of variant `N` alone: the MyDyson app carries find and follow's pictures for
-those two, and its own test of which machines have find and follow does not
-read as written.
+of variant `N` and for every `949`: the MyDyson app builds its find and
+follow control for those machines alone.
+
+Rejected: the `438` and the `527` of variant `N` alone, the two the app
+carries find and follow's pictures for.
+
+- The app shows a `949` the same control without the pictures, and it
+  writes the same `soon` codes.
 
 Rejected: `parseEnvironmentalCareCapabilities`, a function exported beside
 the client.

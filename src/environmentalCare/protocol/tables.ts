@@ -176,6 +176,10 @@ export const ENVIRONMENTAL_CARE_TYPES_WITH_CLEAN_CYCLE: readonly string[] = [
 export const ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW: readonly string[] =
   ["438N", "527N"];
 
+/** The types that take a `findAndFollowMode` whatever their variant. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_FIND_AND_FOLLOW: readonly string[] =
+  ["949"];
+
 export const ENVIRONMENTAL_CARE_TYPES_WITH_CHILD_LOCK: readonly string[] = [
   "635",
   "739",

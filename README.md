@@ -149,7 +149,7 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `oscillationAngleWidthsInDegrees` | How far apart the two `oscillationAngles` may be: `0`, `45`, `90`, `180` and `350`, or `0` alone on a `635` or `739`. `0` points the machine one way without oscillating |
 | `oscillationPresetAnglesInDegrees` | The preset angles an `advanced` machine without `oscillationAngles` takes, such as `45` and `90`, and a `barrel` machine's `45`, `90` and `breeze`; or an empty list |
 | `tiltAnglesInDegrees` | `0`, `25`, `50` and `breeze` for a `tilt` oscillation, or an empty list |
-| `findAndFollowModes` | `off`, `on` and `scan` for a `438` or a `527` of variant `N`, or an empty list |
+| `findAndFollowModes` | `off`, `on` and `scan` for a `438` or a `527` of variant `N` and every `949`, or an empty list |
 | `waterHardnesses` | `soft`, `medium` and `hard` for a humidifier that runs a clean cycle, or an empty list |
 | `childLockMode` | `true` for a `635`, `739`, `918`, `965`, `997` or `1018` |
 | `temperatureUnits` | `celsius` and `fahrenheit` for a later machine but a `739`, `897`, `917`, `949`, `960`, `997`, `1018` or a `438` of variant `M`; or an empty list |
