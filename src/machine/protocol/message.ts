@@ -1,5 +1,5 @@
 import type { DysonMachine } from "../../cloud/models/machine.js";
-import { MACHINE_MODE_REASON, MACHINE_TOPICS } from "./tables.js";
+import { MACHINE_MODE_REASON } from "./tables.js";
 
 /** A message from a machine: `msg` names it, and each kind of machine reads
  * the fields beside it. */
@@ -8,14 +8,15 @@ export interface MachineMessage {
   [field: string]: unknown;
 }
 
-/** A topic of a machine. It starts with the machine's type unless the cloud
- * names another root topic level for it. */
+/** A topic of a machine, from what follows its root topic level and serial
+ * number, such as `status/current`. It starts with the machine's type
+ * unless the cloud names another root topic level for it. */
 export function encodeMachineTopic(
   machine: Pick<DysonMachine, "type" | "mqttRootTopicLevel" | "serialNumber">,
-  topic: keyof typeof MACHINE_TOPICS,
+  topic: string,
 ): string {
   const root = machine.mqttRootTopicLevel ?? machine.type;
-  return `${root}/${machine.serialNumber}/${MACHINE_TOPICS[topic]}`;
+  return `${root}/${machine.serialNumber}/${topic}`;
 }
 
 /** The payload of a command: `msg` names it, and `fields` go beside it,

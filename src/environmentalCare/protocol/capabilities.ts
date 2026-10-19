@@ -1,14 +1,19 @@
 import type { DysonMachine } from "../../cloud/models/machine.js";
 import type {
   EnvironmentalCareCapabilities,
+  Filter,
   OscillationKind,
 } from "../models/capabilities.js";
 import {
   FAN_AIR_DIRECTIONS,
+  FIND_AND_FOLLOW_MODES,
   HEAT_MODES,
   HUMIDIFICATION_MODES,
   type OscillationAngles,
+  type OscillationMode,
   type OscillationPresetAngle,
+  TILT_ANGLES,
+  WATER_HARDNESSES,
 } from "../models/state.js";
 import {
   ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_ANGLE_WIDTHS,
@@ -21,6 +26,7 @@ import {
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_RANGE,
   ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION,
   ENVIRONMENTAL_CARE_TYPES_WITH_BARREL_OSCILLATION,
+  ENVIRONMENTAL_CARE_TYPES_WITH_CLEAN_CYCLE,
   ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION,
   ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE,
   ENVIRONMENTAL_CARE_TYPES_WITH_HUMIDIFICATION_MODE,
@@ -31,6 +37,8 @@ import {
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_AUTO_MODE,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_BASIC_OSCILLATION,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING,
+  ENVIRONMENTAL_CARE_TYPES_WITHOUT_FILTER_LIFE,
+  ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW,
   ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION,
 } from "./tables.js";
 import type { EnvironmentalCareType } from "./type.js";
@@ -48,6 +56,7 @@ export function decodeEnvironmentalCareCapabilities(
   const narrow = ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION.includes(
     machine.type,
   );
+  const typeAndVariant = machine.type + (machine.variant ?? "");
   const oscillationAngles =
     oscillation === "advanced" &&
     firmwareCapabilities.includes(
@@ -69,7 +78,7 @@ export function decodeEnvironmentalCareCapabilities(
     fanAirDirections:
       ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION.includes(machine.type) &&
       !ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION.includes(
-        machine.type + (machine.variant ?? ""),
+        typeAndVariant,
       )
         ? [...FAN_AIR_DIRECTIONS]
         : [],
@@ -80,6 +89,7 @@ export function decodeEnvironmentalCareCapabilities(
     autoHumidification:
       ENVIRONMENTAL_CARE_TYPES_WITH_AUTO_HUMIDIFICATION.includes(machine.type),
     oscillation,
+    oscillationModes: decodeOscillationModes(oscillation),
     oscillationAngles,
     oscillationAngleWidthsInDegrees:
       oscillationAngles === null
@@ -96,11 +106,46 @@ export function decodeEnvironmentalCareCapabilities(
         narrow,
       ),
     ],
+    tiltAnglesInDegrees: oscillation === "tilt" ? [...TILT_ANGLES] : [],
+    findAndFollowModes:
+      ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW.includes(typeAndVariant)
+        ? [...FIND_AND_FOLLOW_MODES]
+        : [],
+    waterHardnesses: ENVIRONMENTAL_CARE_TYPES_WITH_CLEAN_CYCLE.includes(
+      machine.type,
+    )
+      ? [...WATER_HARDNESSES]
+      : [],
     hasAirQualitySensor:
       !ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR.includes(
         machine.type,
       ),
+    filters: decodeFilters(machine.type, type),
   };
+}
+
+// A basic oscillation goes on and off alone, and pauses with no idle mode.
+function decodeOscillationModes(
+  oscillation: OscillationKind,
+): OscillationMode[] {
+  if (oscillation === "basic") {
+    return ["off", "on"];
+  }
+  return oscillation === "advanced" || oscillation === "barrel"
+    ? ["off", "on", "idleOff", "idleOn"]
+    : [];
+}
+
+function decodeFilters(
+  machineType: string,
+  type: EnvironmentalCareType,
+): Filter[] {
+  if (type.generation1) {
+    return ["filter"];
+  }
+  return ENVIRONMENTAL_CARE_TYPES_WITHOUT_FILTER_LIFE.includes(machineType)
+    ? []
+    : ["innerFilter", "outerFilter"];
 }
 
 // A later type whose firmware gives it angles oscillates on and off through

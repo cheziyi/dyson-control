@@ -15,7 +15,11 @@ vi.mock("mqtt", () => ({ connectAsync: vi.fn() }));
 const mock = useMockBroker();
 
 function link(options: Partial<MachineLinkOptions> = {}): MachineLink {
-  return new MachineLink(MACHINE, { account: ACCOUNT, ...options });
+  return new MachineLink(MACHINE, {
+    account: ACCOUNT,
+    topics: ["status/current"],
+    ...options,
+  });
 }
 
 async function connected(
@@ -32,6 +36,15 @@ describe("MachineLink", () => {
 
     expect(mock.credentialRequests).toHaveLength(0);
     expect(connectAsync).not.toHaveBeenCalled();
+  });
+
+  it("receives from each topic it is given", async () => {
+    await connected({ topics: ["status/current", "status/faults"] });
+
+    expect(mock.broker.subscribed).toEqual([
+      "438/S-1/status/current",
+      "438/S-1/status/faults",
+    ]);
   });
 
   it("connects once, for every call and a second connect", async () => {

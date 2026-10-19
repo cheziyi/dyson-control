@@ -14,11 +14,15 @@ import {
   type MachineMessage,
   parseMachineMessage,
 } from "./protocol/message.js";
+import { MACHINE_TOPICS } from "./protocol/tables.js";
 
 export interface MachineLinkOptions {
   /** The account the machine is registered to, as `login` resolved with
    * it. */
   account: DysonAccount;
+  /** The topics the machine reports on, each as what follows its root topic
+   * level and serial number, such as `status/current`. */
+  topics: readonly string[];
   /** How long, in milliseconds, a call waits for each of the cloud, the
    * broker and the machine's answer. Defaults to 10000. */
   timeoutInMs?: number;
@@ -31,7 +35,7 @@ export interface MachineLinkOptions {
   retry?: DysonRetryOptions;
   /** Called with each message the machine sends while the link is
    * connected, the answer to a `request` included. A machine answers on the
-   * one topic every client receives from, so the answer to another client's
+   * topics every client receives from, so the answer to another client's
    * command comes too. Defaults to doing nothing. */
   onMessage?: (message: MachineMessage) => void;
   /** Called after the connection closed and the link opened another by
@@ -54,7 +58,7 @@ interface Waiter {
 
 /** The link to one machine through the cloud broker, which the client of
  * each kind of machine sends its commands over. It publishes to the
- * machine's `command` topic and receives from its `status/current` topic.
+ * machine's `command` topic and receives from the topics it is given.
  *
  * It holds a connection from `connect` until `disconnect`, connecting again by
  * itself, with new credentials, when the connection closes any other way.
@@ -63,6 +67,7 @@ interface Waiter {
 export class MachineLink {
   private readonly transport: DysonCloudTransport;
   private readonly timeoutInMs: number;
+  private readonly topics: MachineLinkOptions["topics"];
   private readonly retry: MachineLinkOptions["retry"];
   private readonly onMessage: MachineLinkOptions["onMessage"];
   private readonly onReconnect: MachineLinkOptions["onReconnect"];
@@ -82,6 +87,7 @@ export class MachineLink {
     private readonly machine: DysonMachine,
     options: MachineLinkOptions,
   ) {
+    this.topics = options.topics;
     this.timeoutInMs = options.timeoutInMs ?? DEFAULT_TIMEOUT_IN_MS;
     this.retry = options.retry;
     this.onMessage = options.onMessage;
@@ -147,7 +153,7 @@ export class MachineLink {
   ): Promise<void> {
     const connection = await this.openConnection();
     await connection.publish(
-      encodeMachineTopic(this.machine, "command"),
+      encodeMachineTopic(this.machine, MACHINE_TOPICS.command),
       buildMachineCommand(msg, new Date(), fields),
     );
   }
@@ -190,7 +196,9 @@ export class MachineLink {
       );
     }
     this.connection ??= DysonConnection.open(this.machine, this.transport, {
-      topic: encodeMachineTopic(this.machine, "status"),
+      topics: this.topics.map((topic) =>
+        encodeMachineTopic(this.machine, topic),
+      ),
       timeoutInMs: this.timeoutInMs,
       onMessage: (payload) => this.receive(payload),
       onClose: () => this.drop(),

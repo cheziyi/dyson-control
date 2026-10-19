@@ -22,12 +22,14 @@ const REFUSED_CREDENTIALS_CODES = new Set([4, 5]);
 const REFUSED_SUBSCRIPTION_CODE = 128;
 
 export interface DysonConnectionOptions {
-  /** The topic to receive from, subscribed before `open` resolves. */
-  topic: string;
+  /** The topics to receive from, each subscribed before `open`
+   * resolves. */
+  topics: string[];
   /** How long, in milliseconds, to wait for the broker to accept the
    * connection before `open` rejects with a `DysonError` with status 504. */
   timeoutInMs: number;
-  /** Called with the payload of each message on `topic`, as text. */
+  /** Called with the payload of each message on any of `topics`, as
+   * text. */
   onMessage: (payload: string) => void;
   /** Called once, when a connection `open` resolved with closes for any
    * reason, `close` included. */
@@ -97,11 +99,11 @@ export class DysonConnection {
     const connection = new DysonConnection(client);
     let granted: { qos: number }[];
     try {
-      granted = await client.subscribeAsync(options.topic, { qos: 1 });
+      granted = await client.subscribeAsync(options.topics, { qos: 1 });
     } catch (error) {
       await connection.close();
       throw new DysonConnectionError(
-        `Subscribing to ${options.topic} failed: ${String(error)}`,
+        `Subscribing to ${options.topics.join(", ")} failed: ${String(error)}`,
       );
     }
     // The MQTT library resolves for a subscription the broker refuses, and
@@ -109,7 +111,7 @@ export class DysonConnection {
     if (granted.some((each) => each.qos === REFUSED_SUBSCRIPTION_CODE)) {
       await connection.close();
       throw new DysonError(
-        `The Dyson broker refused the subscription to ${options.topic}`,
+        `The Dyson broker refused the subscription to ${options.topics.join(", ")}`,
         401,
       );
     }

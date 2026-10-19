@@ -18,7 +18,7 @@ describe("encodeMachineTopic", () => {
     expect(encodeMachineTopic(MACHINE, "command")).toBe(
       "438/A1B-EU-ABC1234D/command",
     );
-    expect(encodeMachineTopic(MACHINE, "status")).toBe(
+    expect(encodeMachineTopic(MACHINE, "status/current")).toBe(
       "438/A1B-EU-ABC1234D/status/current",
     );
   });

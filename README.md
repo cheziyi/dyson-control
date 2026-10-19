@@ -143,13 +143,15 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `fanAirDirections` | `forward` and `backward`, or an empty list |
 | `humidificationModes` | `off` and `humidify` for a machine that also takes `manualHumidificationTargetInPercent`, or an empty list |
 | `oscillation` | `basic`, on and off; `advanced`, between two angles as well; `barrel`, to a preset angle or a breeze; `tilt`, on the machine's axis; or `none` |
+| `oscillationModes` | `off` and `on` for a `basic` oscillation, with `idleOff` and `idleOn` for an `advanced` or a `barrel` one; or an empty list |
 | `oscillationAngles` | The widest `{ lowerInDegrees, upperInDegrees }` the machine takes, `5` to `355` or `145` to `215` on a `635` or `739`; or `null` when it takes no angles |
 | `oscillationAngleWidthsInDegrees` | How far apart the two `oscillationAngles` may be: `0`, `45`, `90`, `180` and `350`, or `0` alone on a `635` or `739`. `0` points the machine one way without oscillating |
 | `oscillationPresetAnglesInDegrees` | The preset angles an `advanced` machine without `oscillationAngles` takes, such as `45` and `90`, and a `barrel` machine's `45`, `90` and `breeze`; or an empty list |
+| `tiltAnglesInDegrees` | `0`, `25`, `50` and `breeze` for a `tilt` oscillation, or an empty list |
+| `findAndFollowModes` | `off`, `on` and `scan` for a `438` or a `527` of variant `N`, or an empty list |
+| `waterHardnesses` | `soft`, `medium` and `hard` for a humidifier that runs a clean cycle, or an empty list |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
-
-`setState()` writes `oscillationMode` to every oscillation but `tilt`. Write
-a tilt through [the machine's own fields](#the-machines-own-fields).
+| `filters` | `filter` for the first generation, `innerFilter` and `outerFilter` for a later machine that reports its filters' life, or an empty list: what [`resetFilterLife()`](#filters-and-faults) takes |
 
 ### State
 
@@ -174,6 +176,22 @@ reports none, so a fan without a heater reads `heatMode: null`.
 | `humidificationMode` | `off` or `humidify` |
 | `autoHumidification` | `true` when the machine picks the target humidity itself |
 | `manualHumidificationTargetInPercent` | A number |
+| `tiltAngleInDegrees` | `0`, `25` or `50`, or `breeze`, which tilts the machine back and forth |
+| `findAndFollowMode` | `off`, `on` to follow the people the machine finds, or `scan` to look for them |
+| `waterHardness` | `soft`, `medium` or `hard`: how often a humidifier asks for a clean cycle |
+
+The rest of the state are readings, which `setState()` does not take:
+
+| Field | Holds |
+| --- | --- |
+| `oscillationState` | `on`, `off`, `idle` while the machine stands by with its oscillation paused, or `invalid`, `init`, `scan`, `acs`, `acm` or `nod` |
+| `findAndFollowState` | `scan` while it looks for people, `acs` or `acm` while it follows one, `nod` while it is dormant, or another value of `oscillationState` |
+| `cleanCycleState` | `setup`, `active`, `paused`, `incomplete`, `complete` or `notInCleanCycle` |
+| `remainingTimeToNextCleanCycleInHours`, `remainingTimeOfActiveCleanCycleInMinutes` | A number |
+| `filterLifeInHours` | The life left in the filter of a machine of the first generation, from `4300` when new |
+| `innerFilterLifeInPercent`, `outerFilterLifeInPercent` | The life left in a later machine's inner and outer filter |
+| `innerFilterType` | `carbon`, `sco`, `scog`, `scoh`, `car1` or `none` |
+| `outerFilterType` | `hepa`, `hepaPtfe`, `gcom`, `pcom`, `gcok`, `pcok`, `ehep`, `hsco`, `estf`, `esco`, `ecar`, `escc` or `none` |
 
 A field that holds a named mode, such as `heatMode`, is that mode and not
 `true` or `false`: a machine with a third mode then needs no new field.
@@ -219,25 +237,49 @@ await client.setState({ sleepTimerInMinutes: 30 });
 | --- | --- |
 | Rejects with an `Error`, and sends nothing, for a field or a value [`client.capabilities`](#capabilities) says the machine does not take | Write the machine's own fields to send it anyway |
 | Resolves once the broker has the command, not once the machine has acted | Call `getState()` to read what the machine did |
-| Switches the machine on with an `autoMode` or a `fanSpeed` | Pass `fanPower: false` with it to leave the machine off |
+| Switches the machine on with an `autoMode`, a `fanSpeed`, a `tiltAngleInDegrees` or a `findAndFollowMode` other than `off` | Pass `fanPower: false` with it to leave the machine off |
 | Switches auto mode off with a `fanSpeed` | Pass `autoMode: true` with it to keep auto mode |
 | Stops the sleep timer with a `fanPower` of `false` | Pass `sleepTimerInMinutes` with it to keep one running |
-| Switches the oscillation on with an `oscillationAngles` or an `oscillationPresetAngleInDegrees` | Pass `oscillationMode` with it to send another, such as `idleOn` |
+| Switches the oscillation on with an `oscillationAngles` or an `oscillationPresetAngleInDegrees` | Pass `oscillationMode` with it to send another, such as `idleOn` while `oscillationState` is `idle` |
+| Sets `fanAirDirection` with a `tiltAngleInDegrees`: `backward` for `50`, and `forward` for every other | Read the direction back from `getState()` |
 
 The types `455`, `455C`, `469` and `475` hold their power and their auto mode
 as one value, so `setState({ fanPower: true })` takes one of them out of auto
 mode: pass `autoMode: true` with it to switch on in auto mode.
 
+### Filters and faults
+
+```ts
+const { innerFilterLifeInPercent } = await client.getState();
+await client.resetFilterLife("innerFilter"); // after fitting a new one
+
+const { productWarnings } = await client.getFaults();
+if (productWarnings.includes("filterReplacement")) {
+  // the machine asks for a new filter
+}
+```
+
+`resetFilterLife()` takes a filter of `client.capabilities.filters`, and
+rejects with an `Error`, sending nothing, for any other.
+
+`getFaults()` resolves with an `EnvironmentalCareFaults`: the faults the
+machine has, in `productErrors`, `productWarnings`, `moduleErrors` and
+`moduleWarnings`, each by Dyson's name for it, such as `filterReplacement`,
+`tankEmpty` or `cleanCycleOverdue`. A fault whose name is
+[not known](UNSUPPORTED.md#names) keeps the machine's code, such as `iuh0`.
+The `module` groups are the machine's Wi-Fi module.
+
 ### State as the machine reports it
 
-Pass `onState` and `onSensors` to a client to receive what the machine
-sends, without asking for it again:
+Pass `onState`, `onSensors` and `onFaults` to a client to receive what the
+machine sends, without asking for it again:
 
 ```ts
 const client = new EnvironmentalCareClient(machine, {
   account,
   onState: (state) => console.log(state.fanSpeed),
   onSensors: (sensors) => console.log(sensors.temperatureInC),
+  onFaults: (faults) => console.log(faults.productWarnings),
   onReconnect: () => client.getState().catch(console.error),
   onDisconnect: () => console.log("closed"),
 });
@@ -253,6 +295,7 @@ const state = await client.getState(); // what the machine holds now
 | Gives up when connecting again fails, as it does at once with no route to the internet, and calls `onDisconnect` | Call `connect()` again on your own schedule: every other call rejects with status 503 until it resolves |
 | Calls `onState` with the answer to a `getState()` too, whichever client asked, and with a state the machine sends again unchanged | Compare a state with the last one before acting on it |
 | Calls `onSensors` with the answer to a `getSensors()`, whichever client asked. When a machine sends its readings unasked is [not known](UNSUPPORTED.md#messages) | Call `getSensors()` on your own schedule for readings as they change |
+| Calls `onFaults` with the answer to a `getFaults()`, whichever client asked, and with each `FAULTS-CHANGE` the machine sends. When it sends one is [not known](UNSUPPORTED.md#messages) | Call `getFaults()` on your own schedule for the faults the machine has now |
 | Calls `onDisconnect` for a `disconnect()` as well | Call again only where you did not disconnect |
 | Asks the machine nothing on a timer | Call `getState()` on your own schedule to tell a machine that is unplugged: it sends nothing, and the call rejects with status 504 |
 

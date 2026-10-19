@@ -19,19 +19,19 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | Not known | So |
 | --- | --- |
 | When a machine sends an `ENVIRONMENTAL-CURRENT-SENSOR-DATA` without being asked for one | `onSensors` is certain only of the answer to a `getSensors()`, and a caller that wants the readings as they change asks on its own schedule |
+| When a machine sends a `FAULTS-CHANGE`, which holds each fault as its old value and its new one | `onFaults` is certain only of the answer to a `getFaults()`, and a caller that wants the faults as they change asks on its own schedule |
 
 ## Names
 
 | Not known | So |
 | --- | --- |
-| Dyson's names for `osal`, `osau` and `ancp` | `ENVIRONMENTAL_CARE_FIELDS` and `EnvironmentalCareState.oscillationAngles` follow its names for the tilt, `tiltLowerAngle` and `tiltUpperAngle` |
+| Dyson's name for a fault code outside `ENVIRONMENTAL_CARE_FAULTS`, such as the `iuh0` and `iuu0` a `897` reports in `product-errors` | `EnvironmentalCareFaults` holds the code of such a fault |
 
 ## Values
 
 | Not known | So |
 | --- | --- |
-| What a machine means by an `oson` of `OION`, `OIOF` or `SCAN`, which Dyson names `IDLE_ON`, `IDLE_OFF` and `SCAN`. Only `ON` and `OFF` are known to be written | `oscillationMode` reads them as `idleOn`, `idleOff` and `scan`, and `setState` sends one as given |
-| What a machine means by an `oscs` of `INV`, `INIT`, `ACS`, `ACM` or `NOD`, the state of its oscillation beside `oson` | `EnvironmentalCareState` holds no oscillation state |
-| What a machine means by a `sost` of `ACS`, `ACM` or `NOD`, the state of find and follow | `setState` takes no find and follow |
-| The unit of `cdrr`, which a machine reports while it runs a clean cycle | `EnvironmentalCareState` holds no clean cycle |
-| What a machine means by an `ancp` of `SMRT` | `oscillationPresetAngleInDegrees` reads it as `null` |
+| What a machine means by an `oson` of `SCAN`, which it is never written | `oscillationMode` reads it as `scan`, and `setState` rejects it |
+| What a machine means by an `oscs` of `INIT`, `SCAN`, `ACS`, `ACM` or `NOD`, or a `sost` of `INIT`, and how an `ACS` differs from an `ACM` | `oscillationState` and `findAndFollowState` read each by Dyson's name for it |
+| What a machine means by an `ancp` of `SMRT`, which it is never written | `oscillationPresetAngleInDegrees` reads it as `null` |
+| Which machines have find and follow beside a `438` and a `527` of variant `N`, such as a `949` | `capabilities.findAndFollowModes` is empty for them, and `setProductState` writes `soon` |

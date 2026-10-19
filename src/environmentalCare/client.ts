@@ -4,7 +4,12 @@ import type { DysonRetryOptions } from "../cloud/transport.js";
 import { DysonError } from "../error.js";
 import { MachineLink } from "../machine/link.js";
 import type { MachineMessage } from "../machine/protocol/message.js";
-import type { EnvironmentalCareCapabilities } from "./models/capabilities.js";
+import { MACHINE_TOPICS } from "../machine/protocol/tables.js";
+import type {
+  EnvironmentalCareCapabilities,
+  Filter,
+} from "./models/capabilities.js";
+import type { EnvironmentalCareFaults } from "./models/faults.js";
 import type {
   EnvironmentalCareControl,
   EnvironmentalCareSensors,
@@ -12,6 +17,7 @@ import type {
   OscillationAngles,
 } from "./models/state.js";
 import { decodeEnvironmentalCareCapabilities } from "./protocol/capabilities.js";
+import { parseEnvironmentalCareFaults } from "./protocol/faults.js";
 import {
   buildEnvironmentalCareStateSet,
   type EnvironmentalCareMessageName,
@@ -19,11 +25,13 @@ import {
 } from "./protocol/message.js";
 import {
   applyEnvironmentalCareControl,
+  buildEnvironmentalCareFilterLifeReset,
   parseEnvironmentalCareSensors,
   parseEnvironmentalCareState,
 } from "./protocol/state.js";
 import {
   ENVIRONMENTAL_CARE_COMMANDS,
+  ENVIRONMENTAL_CARE_FAULTS_TOPIC,
   ENVIRONMENTAL_CARE_MESSAGES,
 } from "./protocol/tables.js";
 import {
@@ -56,6 +64,11 @@ export interface EnvironmentalCareClientOptions {
    * and any it sends by itself. When it sends one by itself is not known:
    * see UNSUPPORTED.md. Defaults to doing nothing. */
   onSensors?: (sensors: EnvironmentalCareSensors) => void;
+  /** Called with the faults the machine sends while the client is
+   * connected: its answer to a `getFaults`, this client's or another's, and
+   * each `FAULTS-CHANGE` it sends by itself. When it sends one is not
+   * known: see UNSUPPORTED.md. Defaults to doing nothing. */
+  onFaults?: (faults: EnvironmentalCareFaults) => void;
   /** Called after the connection closed and the client opened another by
    * itself, once that one stayed open as long as it took to open. The
    * client received nothing in between: call `getState` for a
@@ -110,6 +123,7 @@ export class EnvironmentalCareClient {
     this.capabilities = decodeEnvironmentalCareCapabilities(machine, type);
     this.link = new MachineLink(machine, {
       ...options,
+      topics: [MACHINE_TOPICS.status, ENVIRONMENTAL_CARE_FAULTS_TOPIC],
       onMessage: (message) => this.receive(message),
     });
   }
@@ -129,19 +143,20 @@ export class EnvironmentalCareClient {
     return this.link.disconnect();
   }
 
-  /** Asks the machine for its controllable state. */
+  /** Asks the machine for its state: what `setState` controls, and the
+   * readings beside it. */
   async getState(): Promise<EnvironmentalCareState> {
     return parseEnvironmentalCareState(await this.getProductState(), this.type);
   }
 
   /** Changes part of the state, with one command and without reading the
-   * machine first. An `autoMode` or a `fanSpeed` also switches the machine
-   * on, a `fanPower` of `false` its sleep timer off, and an
-   * `oscillationAngles` or an `oscillationPresetAngleInDegrees` its
-   * oscillation on. It rejects with an
-   * `Error`, and sends nothing, for a field or a value `capabilities` says
-   * the machine does not take. It resolves once the broker has the command,
-   * not once the machine has acted on it: `getState` then tells. */
+   * machine first. An `autoMode`, a `fanSpeed`, a `tiltAngleInDegrees` or a
+   * `findAndFollowMode` other than `off` also switches the machine on, a
+   * `fanPower` of `false` its sleep timer off, and an `oscillationAngles` or
+   * an `oscillationPresetAngleInDegrees` its oscillation on. It rejects with
+   * an `Error`, and sends nothing, for a field or a value `capabilities`
+   * says the machine does not take. It resolves once the broker has the
+   * command, not once the machine has acted on it: `getState` then tells. */
   async setState(control: EnvironmentalCareControl): Promise<void> {
     const fields = fieldsNotTaken(this.capabilities, control);
     if (fields.length > 0) {
@@ -171,6 +186,35 @@ export class EnvironmentalCareClient {
     );
   }
 
+  /** Asks the machine for the faults it has. */
+  async getFaults(): Promise<EnvironmentalCareFaults> {
+    const faults = parseEnvironmentalCareFaults(
+      await this.link.request(
+        ENVIRONMENTAL_CARE_COMMANDS.requestCurrentFaults,
+        ENVIRONMENTAL_CARE_MESSAGES.currentFaults,
+      ),
+    );
+    if (faults === undefined) {
+      throw new DysonError(
+        `The machine sent a ${ENVIRONMENTAL_CARE_MESSAGES.currentFaults} without faults`,
+        502,
+      );
+    }
+    return faults;
+  }
+
+  /** Resets the life of a new filter to full. It rejects with an `Error`,
+   * and sends nothing, for a filter `capabilities.filters` does not hold.
+   * It resolves once the broker has the command. */
+  async resetFilterLife(filter: Filter): Promise<void> {
+    if (!this.capabilities.filters.includes(filter)) {
+      throw new Error(
+        `The machine has no ${filter}: see EnvironmentalCareClient.capabilities`,
+      );
+    }
+    await this.setProductState(buildEnvironmentalCareFilterLifeReset(filter));
+  }
+
   // --- raw fields ------------------------------------------------------------
 
   /** Asks the machine for its `product-state`, as field -> value: every
@@ -192,6 +236,11 @@ export class EnvironmentalCareClient {
   }
 
   private receive(message: MachineMessage): void {
+    const faults = parseEnvironmentalCareFaults(message);
+    if (faults !== undefined) {
+      this.options.onFaults?.(faults);
+      return;
+    }
     const parsed = parseEnvironmentalCareMessage(message);
     if (parsed === undefined) {
       return;
@@ -234,9 +283,10 @@ function fieldsNotTaken(
   ) => value === undefined || values.includes(value);
   const taken: { [Field in keyof EnvironmentalCareControl]?: boolean } = {
     autoMode: capabilities.autoMode,
-    oscillationMode:
-      capabilities.oscillation !== "none" &&
-      capabilities.oscillation !== "tilt",
+    oscillationMode: takes(
+      capabilities.oscillationModes,
+      control.oscillationMode,
+    ),
     oscillationAngles:
       control.oscillationAngles === undefined ||
       takesOscillationAngles(capabilities, control.oscillationAngles),
@@ -258,6 +308,15 @@ function fieldsNotTaken(
     autoHumidification: capabilities.autoHumidification,
     manualHumidificationTargetInPercent:
       capabilities.humidificationModes.length > 0,
+    tiltAngleInDegrees: takes(
+      capabilities.tiltAnglesInDegrees,
+      control.tiltAngleInDegrees,
+    ),
+    findAndFollowMode: takes(
+      capabilities.findAndFollowModes,
+      control.findAndFollowMode,
+    ),
+    waterHardness: takes(capabilities.waterHardnesses, control.waterHardness),
   };
   return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).filter(
     (field) => control[field] !== undefined && taken[field] === false,
