@@ -250,8 +250,23 @@ describe("applyEnvironmentalCareControl", () => {
     ["breeze", "BRZE"],
   ] as const)("encodes an oscillation preset angle of %s", (angle, ancp) => {
     expect(apply("438", { oscillationPresetAngleInDegrees: angle })).toEqual({
+      oson: "ON",
       ancp,
     });
+  });
+
+  it("switches the oscillation on with its angles, unless the control sets it", () => {
+    expect(
+      apply("438", {
+        oscillationAngles: { lowerInDegrees: 90, upperInDegrees: 180 },
+      }),
+    ).toEqual({ oson: "ON", osal: "0090", osau: "0180", ancp: "CUST" });
+    expect(
+      apply("358", {
+        oscillationMode: "idleOn",
+        oscillationPresetAngleInDegrees: "breeze",
+      }),
+    ).toEqual({ oson: "OION", ancp: "BRZE" });
   });
 
   it("encodes each mode", () => {

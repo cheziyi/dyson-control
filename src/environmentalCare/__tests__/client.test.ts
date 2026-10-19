@@ -80,7 +80,7 @@ describe("EnvironmentalCareClient", () => {
     ).toMatchObject({
       fanAirDirections: [],
       oscillation: "advanced",
-      oscillationAngles: true,
+      oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 355 },
     });
     expect(mock.broker.published).toEqual([]);
   });
@@ -186,7 +186,37 @@ describe("EnvironmentalCareClient", () => {
       await purifier.setState({ oscillationPresetAngleInDegrees: 90 });
 
       expect(mock.broker.published).toMatchObject([
-        { message: { msg: "STATE-SET", data: { ancp: "0090" } } },
+        { message: { msg: "STATE-SET", data: { oson: "ON", ancp: "0090" } } },
+      ]);
+    });
+
+    it("rejects angles outside those the machine takes", async () => {
+      const purifier = await connected({
+        ...MACHINE,
+        firmwareCapabilities: ["AdvanceOscillationDay1"],
+      });
+
+      for (const [lowerInDegrees, upperInDegrees] of [
+        [0, 180],
+        [90, 360],
+        [180, 90],
+      ]) {
+        await expect(
+          purifier.setState({
+            oscillationAngles: { lowerInDegrees, upperInDegrees },
+          }),
+        ).rejects.toThrow("The machine takes no oscillationAngles");
+      }
+      await purifier.setState({
+        oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 5 },
+      });
+
+      expect(mock.broker.published).toMatchObject([
+        {
+          message: {
+            data: { oson: "ON", osal: "0005", osau: "0005", ancp: "CUST" },
+          },
+        },
       ]);
     });
 

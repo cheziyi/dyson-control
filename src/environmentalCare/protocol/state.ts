@@ -97,8 +97,9 @@ export function parseEnvironmentalCareState(
 
 /** The fields a `STATE-SET` carries for a control: those the control sets.
  * An `autoMode` or a `fanSpeed` also switches the machine on, a `fanSpeed`
- * its auto mode off, and a `fanPower` of `false` its sleep timer off, unless
- * the control sets those itself. `type` says which fields the machine holds
+ * its auto mode off, a `fanPower` of `false` its sleep timer off, and an
+ * `oscillationAngles` or an `oscillationPresetAngleInDegrees` its
+ * oscillation on, unless the control sets those itself. `type` says which fields the machine holds
  * its power and its auto mode in. */
 export function applyEnvironmentalCareControl(
   type: EnvironmentalCareType,
@@ -130,9 +131,15 @@ export function applyEnvironmentalCareControl(
     data[ENVIRONMENTAL_CARE_FIELDS.fanSpeed] = encodeNumber(control.fanSpeed);
   }
 
-  if (control.oscillationMode !== undefined) {
+  const oscillationMode =
+    control.oscillationMode ??
+    (control.oscillationAngles === undefined &&
+    control.oscillationPresetAngleInDegrees === undefined
+      ? undefined
+      : "on");
+  if (oscillationMode !== undefined) {
     data[ENVIRONMENTAL_CARE_FIELDS.oscillationMode] =
-      ENVIRONMENTAL_CARE_OSCILLATION_MODE_CODES[control.oscillationMode];
+      ENVIRONMENTAL_CARE_OSCILLATION_MODE_CODES[oscillationMode];
   }
   if (control.oscillationAngles !== undefined) {
     data[ENVIRONMENTAL_CARE_FIELDS.oscillationLowerAngle] = encodeNumber(

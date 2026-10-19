@@ -27,7 +27,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       humidificationModes: [],
       autoHumidification: false,
       oscillation: "advanced",
-      oscillationAngles: true,
+      oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 355 },
       oscillationPresetAnglesInDegrees: [],
       hasAirQualitySensor: true,
     });
@@ -36,7 +36,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
   it("reads preset angles alone from a firmware that takes no two angles", () => {
     expect(decode({ type: "438", firmwareCapabilities: DAY_0 })).toMatchObject({
       oscillation: "advanced",
-      oscillationAngles: false,
+      oscillationAngles: null,
       oscillationPresetAnglesInDegrees: [45, 90, 180, 350],
     });
     expect(decode({ type: "635", firmwareCapabilities: DAY_0 })).toMatchObject({
@@ -44,11 +44,19 @@ describe("decodeEnvironmentalCareCapabilities", () => {
     });
   });
 
+  it("reads narrower angles for a 635 or a 739", () => {
+    expect(decode({ type: "739", firmwareCapabilities: DAY_1 })).toMatchObject({
+      oscillation: "advanced",
+      oscillationAngles: { lowerInDegrees: 145, upperInDegrees: 215 },
+      oscillationPresetAnglesInDegrees: [],
+    });
+  });
+
   it("reads an on-and-off oscillation alone from a firmware that gives no angles", () => {
     for (const firmwareCapabilities of [undefined, ["Scheduling"]]) {
       expect(decode({ type: "438", firmwareCapabilities })).toMatchObject({
         oscillation: "basic",
-        oscillationAngles: false,
+        oscillationAngles: null,
         oscillationPresetAnglesInDegrees: [],
       });
     }
@@ -72,7 +80,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       humidificationModes: ["off", "humidify"],
       autoHumidification: true,
       oscillation: "barrel",
-      oscillationAngles: false,
+      oscillationAngles: null,
       oscillationPresetAnglesInDegrees: [45, 90, "breeze"],
       hasAirQualitySensor: true,
     });
@@ -91,7 +99,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
   it("reads a tilt oscillation, whatever the firmware", () => {
     expect(decode({ type: "664", firmwareCapabilities: DAY_1 })).toMatchObject({
       oscillation: "tilt",
-      oscillationAngles: false,
+      oscillationAngles: null,
     });
   });
 
@@ -105,7 +113,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
   it("reads no oscillation for a 997 whose firmware gives angles, since it takes none", () => {
     expect(decode({ type: "997", firmwareCapabilities: DAY_1 })).toMatchObject({
       oscillation: "none",
-      oscillationAngles: false,
+      oscillationAngles: null,
     });
     expect(decode({ type: "997" })).toMatchObject({ oscillation: "basic" });
   });
@@ -113,7 +121,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
   it("reads an on-and-off oscillation for the first generation, whatever its firmware", () => {
     expect(decode({ type: "455", firmwareCapabilities: DAY_1 })).toMatchObject({
       oscillation: "basic",
-      oscillationAngles: false,
+      oscillationAngles: null,
     });
   });
 

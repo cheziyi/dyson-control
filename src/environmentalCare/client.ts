@@ -9,6 +9,7 @@ import type {
   EnvironmentalCareControl,
   EnvironmentalCareSensors,
   EnvironmentalCareState,
+  OscillationAngles,
 } from "./models/state.js";
 import { decodeEnvironmentalCareCapabilities } from "./protocol/capabilities.js";
 import {
@@ -135,7 +136,9 @@ export class EnvironmentalCareClient {
 
   /** Changes part of the state, with one command and without reading the
    * machine first. An `autoMode` or a `fanSpeed` also switches the machine
-   * on, and a `fanPower` of `false` its sleep timer off. It rejects with an
+   * on, a `fanPower` of `false` its sleep timer off, and an
+   * `oscillationAngles` or an `oscillationPresetAngleInDegrees` its
+   * oscillation on. It rejects with an
    * `Error`, and sends nothing, for a field or a value `capabilities` says
    * the machine does not take. It resolves once the broker has the command,
    * not once the machine has acted on it: `getState` then tells. */
@@ -234,7 +237,12 @@ function fieldsNotTaken(
     oscillationMode:
       capabilities.oscillation !== "none" &&
       capabilities.oscillation !== "tilt",
-    oscillationAngles: capabilities.oscillationAngles,
+    oscillationAngles:
+      control.oscillationAngles === undefined ||
+      takesOscillationAngles(
+        capabilities.oscillationAngles,
+        control.oscillationAngles,
+      ),
     oscillationPresetAngleInDegrees: takes(
       capabilities.oscillationPresetAnglesInDegrees,
       control.oscillationPresetAngleInDegrees,
@@ -256,5 +264,17 @@ function fieldsNotTaken(
   };
   return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).filter(
     (field) => control[field] !== undefined && taken[field] === false,
+  );
+}
+
+function takesOscillationAngles(
+  range: OscillationAngles | null,
+  angles: OscillationAngles,
+): boolean {
+  return (
+    range !== null &&
+    range.lowerInDegrees <= angles.lowerInDegrees &&
+    angles.lowerInDegrees <= angles.upperInDegrees &&
+    angles.upperInDegrees <= range.upperInDegrees
   );
 }

@@ -143,6 +143,20 @@ first generation has no way to take one without it, since `fmod` is `FAN` or
 `AUTO` for a machine that is on, and the later types then behave alike. A
 `fanPower` of `false` also sends the sleep timer off, in the same command.
 
+An `oscillationAngles` or an `oscillationPresetAngleInDegrees` also sends
+`oson` `ON`, in the same command.
+
+Rejected: sending `osal`, `osau` and `ancp` without `oson`.
+
+- A machine is written its angles or its preset with `oson` beside them:
+  `ON`, or `OION` while it reports an `oson` of `OIOF` or an `oscs` of
+  `IDLE`. The client reads nothing before a write, so it sends `ON`, and a
+  caller passes `oscillationMode: "idleOn"` for the other.
+
+`setState` takes `oscillationAngles` only within
+`capabilities.oscillationAngles`, the lower first: a machine is written
+angles from 5 to 355 degrees, and from 145 to 215 on a `635` or `739`.
+
 `setState` rejects with an `Error`, and sends nothing, for a field or a value
 [`capabilities`](#capabilities) says the machine does not take.
 `setProductState` sends any field.
@@ -152,7 +166,7 @@ Rejected: sending every field as given.
 - A machine ignores a field it does not take, and nothing reports that the
   write did nothing.
 - A machine whose firmware takes no two angles takes a preset in `ancp`
-  alone, so an `oscillationAngles` sent to it changed nothing.
+  and no angles, so an `oscillationAngles` sent to it changed nothing.
 
 Not built: skipping a write of a value the machine already reports.
 

@@ -2,6 +2,7 @@ import type {
   FanAirDirection,
   HeatMode,
   HumidificationMode,
+  OscillationAngles,
   OscillationMode,
   OscillationPresetAngle,
 } from "../models/state.js";
@@ -97,13 +98,21 @@ export const ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES: readonly Oscil
 export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES: readonly OscillationPresetAngle[] =
   [45, 90, 180, 350];
 
-/** The preset angles of an advanced oscillation in place of
- * `ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_PRESET_ANGLES`, for the types in
- * `ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION_PRESET_ANGLES`. */
+/** The widest angles of an advanced oscillation whose firmware takes any
+ * two angles of its own. */
+export const ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_RANGE: Readonly<OscillationAngles> =
+  { lowerInDegrees: 5, upperInDegrees: 355 };
+
+/** The preset angles and the widest angles of an advanced oscillation in
+ * place of the advanced ones, for the types in
+ * `ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION`. */
 export const ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES: readonly OscillationPresetAngle[] =
   [15, 40, 70];
 
-export const ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION_PRESET_ANGLES: readonly string[] =
+export const ENVIRONMENTAL_CARE_NARROW_OSCILLATION_RANGE: Readonly<OscillationAngles> =
+  { lowerInDegrees: 145, upperInDegrees: 215 };
+
+export const ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_OSCILLATION: readonly string[] =
   ["635", "739"];
 
 /** The types that tilt on their axis, through `oton` in place of `oson`. */

@@ -143,7 +143,7 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `fanAirDirections` | `forward` and `backward`, or an empty list |
 | `humidificationModes` | `off` and `humidify` for a machine that also takes `manualHumidificationTargetInPercent`, or an empty list |
 | `oscillation` | `basic`, on and off; `advanced`, between two angles as well; `barrel`, to a preset angle or a breeze; `tilt`, on the machine's axis; or `none` |
-| `oscillationAngles` | `true` when the machine takes any two angles |
+| `oscillationAngles` | The widest `{ lowerInDegrees, upperInDegrees }` the machine takes, `5` to `355` or `145` to `215` on a `635` or `739`; or `null` when it takes no angles |
 | `oscillationPresetAnglesInDegrees` | The preset angles an `advanced` machine without `oscillationAngles` takes, such as `45` and `90`, and a `barrel` machine's `45`, `90` and `breeze`; or an empty list |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
 
@@ -221,7 +221,7 @@ await client.setState({ sleepTimerInMinutes: 30 });
 | Switches the machine on with an `autoMode` or a `fanSpeed` | Pass `fanPower: false` with it to leave the machine off |
 | Switches auto mode off with a `fanSpeed` | Pass `autoMode: true` with it to keep auto mode |
 | Stops the sleep timer with a `fanPower` of `false` | Pass `sleepTimerInMinutes` with it to keep one running |
-| Sends `oscillationAngles` without `oscillationMode` | Set `oscillationMode: "on"` as well to start it |
+| Switches the oscillation on with an `oscillationAngles` or an `oscillationPresetAngleInDegrees` | Pass `oscillationMode` with it to send another, such as `idleOn` |
 
 The types `455`, `455C`, `469` and `475` hold their power and their auto mode
 as one value, so `setState({ fanPower: true })` takes one of them out of auto

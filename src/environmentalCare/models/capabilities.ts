@@ -5,6 +5,7 @@ import type {
   FanAirDirection,
   HeatMode,
   HumidificationMode,
+  OscillationAngles,
   OscillationPresetAngle,
 } from "./state.js";
 
@@ -30,10 +31,11 @@ export interface EnvironmentalCareCapabilities {
   /** `setState` writes `oscillationMode` to every oscillation but `tilt`,
    * which it writes nothing to. */
   oscillation: OscillationKind;
-  /** Whether the machine takes any two angles. An `advanced` oscillation
-   * whose firmware does not takes `oscillationPresetAnglesInDegrees`
-   * instead. */
-  oscillationAngles: boolean;
+  /** The widest `oscillationAngles` the machine takes: it takes any two
+   * angles between these, the lower first. `null` for a machine that takes
+   * none: an `advanced` oscillation whose firmware takes none takes
+   * `oscillationPresetAnglesInDegrees` instead. */
+  oscillationAngles: OscillationAngles | null;
   oscillationPresetAnglesInDegrees: OscillationPresetAngle[];
   /** Whether the machine measures the air, and so reports the pollutant
    * readings of `EnvironmentalCareSensors`. */
