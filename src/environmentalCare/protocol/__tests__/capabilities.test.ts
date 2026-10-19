@@ -171,13 +171,14 @@ describe("decodeEnvironmentalCareCapabilities", () => {
   });
 
   it.each([
-    ["a BP10-BA", { type: "438", model: "BP10-BA" }, true, true],
+    ["an 831 of model BP10-BA", { type: "831", model: "BP10-BA" }, true, true],
     [
-      "an 831 of model BP10-BA",
-      { type: "831", model: "BP10-BA" },
+      "an 831 of another model",
+      { type: "831", model: "BP04-BA" },
       false,
       false,
     ],
+    ["a 438 of model BP10-BA", { type: "438", model: "BP10-BA" }, false, false],
     ["a 917 of model EAST", { type: "917", model: "EAST" }, true, true],
     ["a 917 of another model", { type: "917", model: "TP11-BA" }, false, false],
     ["a 994 of model MP01-BA", { type: "994", model: "MP01-BA" }, true, true],

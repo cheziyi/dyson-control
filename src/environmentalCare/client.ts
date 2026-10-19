@@ -328,12 +328,12 @@ function fieldsNotTaken(
       control.airQualityTarget,
     ),
     wickDryingMode: capabilities.wickDryingMode,
-    uvMode: capabilities.uvMode,
-    ionisationMode: capabilities.ionisationMode,
     wickDryingSpeed: takes(
       capabilities.wickDryingSpeeds,
       control.wickDryingSpeed,
     ),
+    uvMode: capabilities.uvMode,
+    ionisationMode: capabilities.ionisationMode,
   };
   return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).filter(
     (field) => control[field] !== undefined && taken[field] === false,

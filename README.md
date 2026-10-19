@@ -157,7 +157,7 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `focusDiffuses` | `focus` and `diffuse` for a `455`, or an empty list |
 | `airQualityTargets` | `good`, `sensitive` and `verySensitive` for the first generation, or an empty list |
 | `wickDryingMode`, `wickDryingSpeeds` | `true`, and `slow`, `normal` and `fast`, for a `965`; or `false` and an empty list |
-| `uvMode` | `true` for a machine of model `BP10-BA` but an `831`, a `917` or `918` of model `EAST`, a `994` of model `MP01-BA`, and every `997` |
+| `uvMode` | `true` for an `831` of model `BP10-BA`, a `917` or `918` of model `EAST`, a `994` of model `MP01-BA`, and every `997` |
 | `ionisationMode` | `true` for the machines `uvMode` is, but a `997` of a model other than `EAST` |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
 | `filters` | `filter` for the first generation, `innerFilter` and `outerFilter` for a later machine that reports its filters' life, or an empty list: what [`resetFilterLife()`](#filters-and-faults) takes |

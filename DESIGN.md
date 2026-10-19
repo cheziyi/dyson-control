@@ -241,10 +241,10 @@ a US one.
 ## Capabilities
 
 `EnvironmentalCareClient.capabilities` decodes what a machine carries from
-its `type`, `variant`, `model` and `firmwareCapabilities`. Each field is named for the
-`EnvironmentalCareState` field it governs, and holds a boolean or the values
-that field takes: a list leaves room for a machine that grows a mode, as a
-named mode does in [Names and modes](#names-and-modes).
+its `type`, `variant`, `model` and `firmwareCapabilities`. Each field is
+named for the `EnvironmentalCareState` field it governs, and holds a boolean
+or the values that field takes: a list leaves room for a machine that grows a
+mode, as a named mode does in [Names and modes](#names-and-modes).
 
 Rejected: taking the capabilities from the machine's state.
 
