@@ -78,6 +78,8 @@ const NOTHING_REPORTED: EnvironmentalCareState = {
   airQualityTarget: null,
   wickDryingMode: null,
   wickDryingSpeed: null,
+  uvMode: null,
+  ionisationMode: null,
   oscillationState: null,
   findAndFollowState: null,
   cleanCycleState: null,
@@ -306,6 +308,8 @@ describe("parseEnvironmentalCareState", () => {
           wdsp: "FAST",
           wdst: "WDRY",
           wdtr: "0025",
+          uvse: "ON",
+          ioni: "OFF",
         },
         LATER,
       ),
@@ -319,6 +323,8 @@ describe("parseEnvironmentalCareState", () => {
       wickDryingSpeed: "fast",
       wickDryingState: "wickDrying",
       wickDryingTimeRemainingInMinutes: 25,
+      uvMode: true,
+      ionisationMode: false,
     });
   });
 
@@ -492,6 +498,8 @@ describe("applyEnvironmentalCareControl", () => {
     ["sleep timer", { sleepTimerInMinutes: 30 }, { sltm: "0030" }],
     ["child lock", { childLockMode: true }, { ctll: "ON" }],
     ["nozzle angle", { nozzleAngle: "indirect" }, { noan: "0045" }],
+    ["UV mode", { uvMode: true }, { uvse: "ON" }],
+    ["ionisation mode", { ionisationMode: false }, { ioni: "OFF" }],
   ] as const)(
     "switches a later machine on to write its %s",
     (_name, control, data) => {

@@ -91,9 +91,9 @@ export interface EnvironmentalCareClientOptions {
  * connected. */
 export class EnvironmentalCareClient {
   /** Which fields of `setState` the machine takes, read from its `type`,
-   * `variant` and `firmwareCapabilities` without asking the machine. A
-   * machine written by hand without the last two reads as a machine of its
-   * type that has neither. */
+   * `variant`, `model` and `firmwareCapabilities` without asking the
+   * machine. A machine written by hand without the last three reads as a
+   * machine of its type that has none of them. */
   readonly capabilities: EnvironmentalCareCapabilities;
   private readonly link: MachineLink;
   private readonly type: EnvironmentalCareType;
@@ -328,6 +328,8 @@ function fieldsNotTaken(
       control.airQualityTarget,
     ),
     wickDryingMode: capabilities.wickDryingMode,
+    uvMode: capabilities.uvMode,
+    ionisationMode: capabilities.ionisationMode,
     wickDryingSpeed: takes(
       capabilities.wickDryingSpeeds,
       control.wickDryingSpeed,

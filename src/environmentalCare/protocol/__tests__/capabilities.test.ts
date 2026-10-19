@@ -41,6 +41,8 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       airQualityTargets: [],
       wickDryingMode: false,
       wickDryingSpeeds: [],
+      uvMode: false,
+      ionisationMode: false,
       hasAirQualitySensor: true,
       filters: ["innerFilter", "outerFilter"],
     });
@@ -109,6 +111,8 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       airQualityTargets: [],
       wickDryingMode: false,
       wickDryingSpeeds: [],
+      uvMode: false,
+      ionisationMode: false,
       hasAirQualitySensor: true,
       filters: ["innerFilter", "outerFilter"],
     });
@@ -165,6 +169,27 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       temperatureUnits: [],
     });
   });
+
+  it.each([
+    ["a BP10-BA", { type: "438", model: "BP10-BA" }, true, true],
+    [
+      "an 831 of model BP10-BA",
+      { type: "831", model: "BP10-BA" },
+      false,
+      false,
+    ],
+    ["a 917 of model EAST", { type: "917", model: "EAST" }, true, true],
+    ["a 917 of another model", { type: "917", model: "TP11-BA" }, false, false],
+    ["a 994 of model MP01-BA", { type: "994", model: "MP01-BA" }, true, true],
+    ["a 997 of model EAST", { type: "997", model: "EAST" }, true, true],
+    ["a 997 of another model", { type: "997", model: "PH04-BA" }, true, false],
+    ["a 997 without a model", { type: "997" }, true, false],
+  ])(
+    "reads UV and ionisation for %s",
+    (_name, machine, uvMode, ionisationMode) => {
+      expect(decode(machine)).toMatchObject({ uvMode, ionisationMode });
+    },
+  );
 
   it("reads find and follow from the variants that have it", () => {
     expect(decode({ type: "438", variant: "N" })).toMatchObject({
