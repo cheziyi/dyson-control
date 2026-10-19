@@ -192,11 +192,14 @@ describe("decodeEnvironmentalCareCapabilities", () => {
     },
   );
 
-  it("reads find and follow from the variants that have it", () => {
+  it("reads find and follow from the machines that have it", () => {
     expect(decode({ type: "438", variant: "N" })).toMatchObject({
       findAndFollowModes: ["off", "on", "scan"],
     });
     expect(decode({ type: "527", variant: "N" })).toMatchObject({
+      findAndFollowModes: ["off", "on", "scan"],
+    });
+    expect(decode({ type: "949" })).toMatchObject({
       findAndFollowModes: ["off", "on", "scan"],
     });
     expect(decode({ type: "438", variant: "M" })).toMatchObject({

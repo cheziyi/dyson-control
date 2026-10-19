@@ -58,6 +58,7 @@ describe("the environmental care tables", () => {
       ],
       ENVIRONMENTAL_CARE_TYPES_WITH_CLEAN_CYCLE: ["358", "358E", "358K", "965"],
       ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW: ["438N", "527N"],
+      ENVIRONMENTAL_CARE_TYPES_WITH_FIND_AND_FOLLOW: ["949"],
       ENVIRONMENTAL_CARE_TYPES_WITH_CHILD_LOCK: [
         ...["635", "739", "918", "965", "997", "1018"],
       ],
