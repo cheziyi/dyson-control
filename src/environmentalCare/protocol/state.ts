@@ -370,15 +370,15 @@ export function applyEnvironmentalCareControl(
     ENVIRONMENTAL_CARE_FIELDS.wickDryingMode,
     encodeSwitch(control.wickDryingMode),
   );
+  if (control.wickDryingSpeed !== undefined) {
+    data[ENVIRONMENTAL_CARE_FIELDS.wickDryingSpeed] =
+      ENVIRONMENTAL_CARE_WICK_DRYING_SPEED_CODES[control.wickDryingSpeed];
+  }
   set(ENVIRONMENTAL_CARE_FIELDS.uvMode, encodeSwitch(control.uvMode));
   set(
     ENVIRONMENTAL_CARE_FIELDS.ionisationMode,
     encodeSwitch(control.ionisationMode),
   );
-  if (control.wickDryingSpeed !== undefined) {
-    data[ENVIRONMENTAL_CARE_FIELDS.wickDryingSpeed] =
-      ENVIRONMENTAL_CARE_WICK_DRYING_SPEED_CODES[control.wickDryingSpeed];
-  }
   return data;
 }
 

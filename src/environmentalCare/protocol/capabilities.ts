@@ -26,7 +26,6 @@ import {
   ENVIRONMENTAL_CARE_ADVANCED_OSCILLATION_RANGE,
   ENVIRONMENTAL_CARE_BARREL_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_FIRMWARE_CAPABILITIES,
-  ENVIRONMENTAL_CARE_MODELS_WITH_UV_AND_IONISATION,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_ANGLE_WIDTHS,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_PRESET_ANGLES,
   ENVIRONMENTAL_CARE_NARROW_OSCILLATION_RANGE,
@@ -51,7 +50,6 @@ import {
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_CONTINUOUS_MONITORING,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_FILTER_LIFE,
   ENVIRONMENTAL_CARE_TYPES_WITHOUT_TEMPERATURE_UNIT,
-  ENVIRONMENTAL_CARE_TYPES_WITHOUT_UV_AND_IONISATION_BY_MODEL,
   ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW,
   ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION,
   ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_TEMPERATURE_UNIT,
@@ -72,7 +70,11 @@ export function decodeEnvironmentalCareCapabilities(
     machine.type,
   );
   const typeAndVariant = machine.type + (machine.variant ?? "");
-  const uvAndIonisation = takesUvAndIonisation(machine);
+  const uvAndIonisation =
+    machine.model !== undefined &&
+    ENVIRONMENTAL_CARE_TYPE_MODELS_WITH_UV_AND_IONISATION.includes(
+      `${machine.type}/${machine.model}`,
+    );
   const oscillationAngles =
     oscillation === "advanced" &&
     firmwareCapabilities.includes(
@@ -174,21 +176,6 @@ export function decodeEnvironmentalCareCapabilities(
       ),
     filters: decodeFilters(machine.type, type),
   };
-}
-
-function takesUvAndIonisation(machine: DysonMachine): boolean {
-  if (machine.model === undefined) {
-    return false;
-  }
-  return (
-    (ENVIRONMENTAL_CARE_MODELS_WITH_UV_AND_IONISATION.includes(machine.model) &&
-      !ENVIRONMENTAL_CARE_TYPES_WITHOUT_UV_AND_IONISATION_BY_MODEL.includes(
-        machine.type,
-      )) ||
-    ENVIRONMENTAL_CARE_TYPE_MODELS_WITH_UV_AND_IONISATION.includes(
-      `${machine.type}/${machine.model}`,
-    )
-  );
 }
 
 // A basic oscillation goes on and off alone, and pauses with no idle mode.
