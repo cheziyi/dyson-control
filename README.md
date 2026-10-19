@@ -10,7 +10,8 @@
 
 A TypeScript and Node.js client for controlling Dyson environmental care
 machines: purifiers, fans, heaters and humidifiers. It reaches a machine
-through the Dyson cloud with your Dyson account, from any network.
+through the Dyson cloud with your Dyson account, from any network, or
+through the machine's own broker on your LAN.
 
 ## Installation
 
@@ -128,6 +129,35 @@ this table:
 A machine from `getMachines` also carries `remoteBrokerType`, and
 `mqttRootTopicLevel`, `category`, `name`, `variant`, `model`, `productName`,
 `firmwareVersion` and `firmwareCapabilities` when the cloud reports them.
+
+### LAN connection
+
+Pass `host` to reach the machine through its own broker on your network:
+
+```ts
+const client = new EnvironmentalCareClient(machine, {
+  host: `${machine.serialNumber}.local`,
+  account, // optional: through the cloud when the LAN fails
+});
+```
+
+| Pass | Each connection goes through |
+| --- | --- |
+| `account` | The cloud's broker |
+| `host` | The machine's own broker, and nothing is asked of the cloud |
+| `host` and `account` | The machine's own broker, and the cloud's when the machine's fails to open, refused, unresolved, timed out or rejecting the `apPasswordHash`. A reconnect tries the machine's own first again |
+
+`client.hostType` says which broker the open connection goes through:
+`local`, `remote`, or `null` while none is open. Read it once `connect()`
+resolves and in `onReconnect`.
+
+| Part | Meaning |
+| --- | --- |
+| `host` | The machine's host name or IPv4 address. A machine names itself `<serialNumber>.local` over mDNS, which macOS and Windows resolve, and Linux does with Avahi and `nss-mdns`. Pass its IP address where that name does not resolve, such as in a Docker container on the default bridge network |
+| `machine.apPasswordHash` | The password of the machine's broker. `getMachines` reads it from the cloud: store it with the machine. The constructor throws an `Error` for a machine without one |
+| The connection | Port 1883, without TLS. A host that answers nothing, or a `.local` name that does not resolve, costs up to `timeoutInMs` before a client with an `account` tries the cloud: macOS gives up on a `.local` name after 5 seconds |
+
+[DESIGN.md](DESIGN.md#connectivity) says why the LAN comes first.
 
 ### Capabilities
 
@@ -338,18 +368,18 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 
 | `httpStatusCode` | Meaning |
 | --- | --- |
-| 401 | The cloud emails no login code for the address, rejected the login or the account's token, or the broker rejected the credentials the cloud issued or the subscription to the machine's topic |
-| 501 | The machine is on the RabbitMQ broker, which no client connects to: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
+| 401 | The cloud emails no login code for the address, rejected the login or the account's token, or the broker rejected the credentials the cloud issued, the machine's `apPasswordHash` or the subscription to the machine's topic |
+| 501 | The machine is on the RabbitMQ broker, which no client connects to through the cloud: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
 | 502 | The cloud answered with a reply that does not parse, or the machine with a message that lacks its fields |
-| 503 | The cloud or the broker refused or dropped the connection (a `DysonConnectionError`), or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |
+| 503 | The cloud or the broker refused or dropped the connection, or the `host` does not resolve (a `DysonConnectionError`); or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |
 | 504 | The cloud, the broker or the machine did not answer in time. A machine that is unplugged or off its Wi-Fi answers nothing |
 | 429 | The cloud was asked for a login code again within seconds of the last one: wait before asking again |
 | Any other | The cloud's own HTTP status |
 
 Only a `DysonConnectionError` is retried, up to five times by default, and
 never for `requestLoginCode()` or `login()`. A client connects again by the
-same retries, with new credentials, when its connection closes other than by
-`disconnect()`.
+same retries, with new credentials from the cloud, when its connection closes
+other than by `disconnect()`.
 [DESIGN.md](DESIGN.md#retries) says why.
 
 | To | Pass |
@@ -370,13 +400,13 @@ place of `dyson-control`. The cloud refuses an empty one with HTTP 403.
   controls a machine of the `environmentalCare` category whose type is in
   the table under [Machines](#machines). `getMachines()` lists a robot
   vacuum or a light as well, and nothing controls one yet.
-- **The cloud only**: the package needs a Dyson account and a route to the
-  internet, and does not talk to a machine over the LAN.
-  [DESIGN.md](DESIGN.md#connectivity) says why.
+- **No discovery on the LAN**: a client given a `host` connects there, and
+  the package searches the network for no machine.
 - **Email login only**: an account that logs in with a mobile number is not
   covered.
 - **Machines on the RabbitMQ broker** are listed by `getMachines()` with
-  `remoteBrokerType: "rabbitMq"`, and their client rejects with status 501.
+  `remoteBrokerType: "rabbitMq"`, and a client reaching one through the
+  cloud rejects with status 501.
 
 This package is still young, so expect some rough edges. If something doesn't
 work with your machine, please

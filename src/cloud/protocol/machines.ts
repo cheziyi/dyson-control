@@ -1,6 +1,8 @@
+import { createDecipheriv } from "node:crypto";
 import { DysonError } from "../../error.js";
 import { type DysonMachine, MACHINE_CATEGORIES } from "../models/machine.js";
 import {
+  CLOUD_LOCAL_BROKER_CREDENTIALS_CIPHER,
   CLOUD_MACHINE_CATEGORY_CODES,
   CLOUD_REMOTE_BROKER_TYPE_CODES,
 } from "./tables.js";
@@ -54,6 +56,7 @@ function parseMachine(entry: unknown): DysonMachine | undefined {
     productName: text(fields.productName),
     firmwareVersion: text(firmware.version),
     firmwareCapabilities: strings(firmware.capabilities),
+    apPasswordHash: decodeLocalBrokerCredentials(mqtt.localBrokerCredentials),
   };
   // Without the keys of the fields the cloud left out.
   Object.assign(machine, JSON.parse(JSON.stringify(optional)));
@@ -63,6 +66,25 @@ function parseMachine(entry: unknown): DysonMachine | undefined {
       ? "rabbitMq"
       : "awsIot";
   return machine;
+}
+
+/** The `apPasswordHash` that `localBrokerCredentials` encrypts, or
+ * `undefined` for a value that does not decrypt to one. */
+function decodeLocalBrokerCredentials(value: unknown): string | undefined {
+  if (typeof value !== "string" || value === "") {
+    return undefined;
+  }
+  const { algorithm, key, iv } = CLOUD_LOCAL_BROKER_CREDENTIALS_CIPHER;
+  try {
+    const decipher = createDecipheriv(algorithm, key, iv);
+    const plain = Buffer.concat([
+      decipher.update(Buffer.from(value, "base64")),
+      decipher.final(),
+    ]).toString("utf8");
+    return text(object(JSON.parse(plain)).apPasswordHash);
+  } catch {
+    return undefined;
+  }
 }
 
 function object(value: unknown): Record<string, unknown> {

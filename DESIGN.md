@@ -2,24 +2,59 @@
 
 ## Connectivity
 
-A client reaches a machine through the Dyson cloud alone. On `connect` it
-posts the machine's serial number to `/v2/authorize/iot-credentials`,
-opens an MQTT connection over TLS to the broker the reply names, on port 443
-with the ALPN protocol `mqtt`, and subscribes to the topics its client
-names: an environmental care machine's `status/current` and
-`status/faults`. Every command goes to the machine's `command` topic on that
-connection.
+A client reaches a machine through the brokers its options name, the
+machine's own first:
 
-Not built: the machine's own broker on the LAN first, with the cloud as the
-fallback.
+| Options | Broker | To connect |
+| --- | --- | --- |
+| `account` | The cloud's | Posts the machine's serial number to `/v2/authorize/iot-credentials`, and opens MQTT over TLS to the broker the reply names, on port 443 with the ALPN protocol `mqtt` |
+| `host` | The machine's own, on the LAN | Opens MQTT without TLS to port 1883 of `host`, with a client id of its own, the serial number as the username and the `apPasswordHash` as the password |
 
-- The cloud's broker reaches a machine from any network, and the machine's
-  own only from the network the machine is on.
-- The password of the LAN broker comes from the cloud's manifest, so a
-  caller would log in to the cloud for it either way.
+Either way it subscribes to the topics its client names, an environmental
+care machine's `status/current` and `status/faults`, and sends every
+command to the machine's `command` topic, with a `mode-reason` of `RAPP`
+through the cloud and `LAPP` on the LAN.
 
-A caller passes the account in, and nothing is searched for on the network:
-`getMachines` reads the account's machines from the cloud's manifest.
+`getMachines` reads `apPasswordHash` from the manifest's
+`localBrokerCredentials`, which the MyDyson app decrypts with one key and IV
+for every machine.
+
+Given both, each connection, a reconnect included, tries the machine's own
+broker and opens the cloud's when that fails in any way: refused, a `host`
+that does not resolve, no CONNACK in time, or the `apPasswordHash`
+rejected. `withRetry` repeats the pair. The connection that opens sets the
+`mode-reason` of each command sent on it.
+
+- A caller can fall back at `connect` with two clients, but not when a
+  connection closes later: the link reconnects by itself, so only it can
+  pick the other broker then, with the handlers and the calls that waited
+  kept.
+- A reconnect tries the LAN again, so a client that fell back returns to
+  the machine's own broker once it answers.
+
+Not built: the cloud first, with the machine's own broker as the fallback.
+
+- The cloud's broker opens whenever the internet is up, so the machine's
+  own would be tried only while it is down, and its quicker answers would
+  go unused.
+
+Not built: finding the host on the network.
+
+- The package searches the network for nothing: the caller passes `host`.
+  A machine names itself `<serialNumber>.local`, which the operating system
+  resolves where it resolves mDNS names, so the README gives that name and
+  the package needs no mDNS library.
+
+A link logs in to the machine's broker with a client id of its own, 16
+random hex digits, kept across its reconnects. The broker refuses a client
+id that is empty or longer than 23 characters.
+
+Rejected: the serial number as the client id, as the MyDyson app sends it.
+
+- The broker closes a connection when another opens with its client id, so
+  two programs reaching one machine on the LAN closed each other's
+  connections until one gave up. The broker holds two connections with
+  client ids of their own at once.
 
 ## One link, one client for each kind of machine
 
@@ -54,8 +89,8 @@ Rejected: the environmental care machines alone.
 
 ## Credentials for one connection
 
-A `MachineLink` asks the cloud for new credentials each time it connects,
-and a `DysonConnection` never reconnects by itself: the MQTT library's
+A `MachineLink` given an `account` asks the cloud for new credentials each
+time it connects, and a `DysonConnection` never reconnects by itself: the MQTT library's
 `reconnectPeriod` is 0. When the connection closes, the link opens another
 with new credentials, as [Retries](#retries) says.
 

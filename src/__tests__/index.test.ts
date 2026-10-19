@@ -15,6 +15,7 @@ describe("the package", () => {
       "FIND_AND_FOLLOW_MODES",
       "FOCUS_DIFFUSES",
       "HEAT_MODES",
+      "HOST_TYPES",
       "HUMIDIFICATION_MODES",
       "INNER_FILTER_TYPES",
       "MACHINE_CATEGORIES",

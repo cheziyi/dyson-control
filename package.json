@@ -1,7 +1,7 @@
 {
   "name": "dyson-control",
   "version": "0.0.0",
-  "description": "Unofficial Node.js and TypeScript client for controlling Dyson air purifiers, fans, heaters and humidifiers through the Dyson cloud.",
+  "description": "Unofficial Node.js and TypeScript client for controlling Dyson air purifiers, fans, heaters and humidifiers through the Dyson cloud or on the LAN.",
   "keywords": [
     "dyson",
     "dyson-api",

@@ -1,8 +1,8 @@
-import type { DysonAccount } from "../cloud/models/account.js";
 import type { DysonMachine } from "../cloud/models/machine.js";
 import type { DysonRetryOptions } from "../cloud/transport.js";
 import { DysonError } from "../error.js";
-import { MachineLink } from "../machine/link.js";
+import { MachineLink, type MachineLinkBrokerOptions } from "../machine/link.js";
+import type { HostType } from "../machine/models/hostType.js";
 import type { MachineMessage } from "../machine/protocol/message.js";
 import { MACHINE_TOPICS } from "../machine/protocol/tables.js";
 import type {
@@ -39,10 +39,10 @@ import {
   type EnvironmentalCareType,
 } from "./protocol/type.js";
 
-export interface EnvironmentalCareClientOptions {
-  /** The account the machine is registered to, as `login` resolved with
-   * it. */
-  account: DysonAccount;
+/** Takes an `account`, to reach the machine through the cloud, a `host`,
+ * to reach it on the LAN, or both, to try the LAN first: see
+ * `MachineLinkBrokerOptions`. */
+export type EnvironmentalCareClientOptions = MachineLinkBrokerOptions & {
   /** How long, in milliseconds, a call waits for each of the cloud, the
    * broker and the machine's answer. Defaults to 10000: see
    * `MachineLinkOptions.timeoutInMs`. */
@@ -80,7 +80,7 @@ export interface EnvironmentalCareClientOptions {
    * until `connect`. Defaults to doing nothing: see
    * `MachineLinkOptions.onDisconnect`. */
   onDisconnect?: () => void;
-}
+};
 
 /** A purifier, fan, heater or humidifier: a machine of the
  * `environmentalCare` category. Call `connect` before any other method,
@@ -99,8 +99,9 @@ export class EnvironmentalCareClient {
   private readonly type: EnvironmentalCareType;
 
   /** It sends nothing. It throws an `Error` for a machine of another
-   * category, and for one whose `type` is no known environmental care
-   * machine's: the type says how the machine holds its state. */
+   * category, for one whose `type` is no known environmental care
+   * machine's: the type says how the machine holds its state, and for a
+   * `host` and a machine without an `apPasswordHash`. */
   constructor(
     machine: DysonMachine,
     private readonly options: EnvironmentalCareClientOptions,
@@ -128,8 +129,16 @@ export class EnvironmentalCareClient {
     });
   }
 
-  /** Asks the cloud for credentials, connects to the broker and resolves
-   * once the client receives what the machine sends. It asks the machine
+  /** The broker the open connection goes through, or `null` while none is
+   * open. Read it once `connect` resolves and in `onReconnect`: a client
+   * given a `host` and an `account` can open each connection through
+   * either. */
+  get hostType(): HostType | null {
+    return this.link.hostType;
+  }
+
+  /** Connects to the broker, with new credentials when it is the cloud's,
+   * and resolves once the client receives what the machine sends. It asks the machine
    * nothing, so `onState` waits for the machine to send a state: call
    * `getState` for the one it holds now. Calling it while connected does
    * nothing. */

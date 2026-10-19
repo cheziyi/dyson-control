@@ -7,7 +7,7 @@ export const MACHINE = { serialNumber: "S-1", type: "438" };
 export const COMMAND_TOPIC = "438/S-1/command";
 export const STATUS_TOPIC = "438/S-1/status/current";
 
-const CREDENTIALS = {
+export const CREDENTIALS = {
   Endpoint: "broker.example.com",
   IoTCredentials: {
     ClientId: "client-1",

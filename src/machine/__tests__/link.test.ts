@@ -14,7 +14,9 @@ vi.mock("mqtt", () => ({ connectAsync: vi.fn() }));
 
 const mock = useMockBroker();
 
-function link(options: Partial<MachineLinkOptions> = {}): MachineLink {
+function link(
+  options: Partial<Omit<MachineLinkOptions, "account" | "host">> = {},
+): MachineLink {
   return new MachineLink(MACHINE, {
     account: ACCOUNT,
     topics: ["status/current"],
@@ -23,7 +25,7 @@ function link(options: Partial<MachineLinkOptions> = {}): MachineLink {
 }
 
 async function connected(
-  options: Partial<MachineLinkOptions> = {},
+  options: Partial<Omit<MachineLinkOptions, "account" | "host">> = {},
 ): Promise<MachineLink> {
   const machineLink = link(options);
   await machineLink.connect();
@@ -79,6 +81,142 @@ describe("MachineLink", () => {
         },
       },
     ]);
+  });
+
+  describe("at a host", () => {
+    const machine = { ...MACHINE, apPasswordHash: "hash-1" };
+
+    it("connects to the machine's own broker, and asks the cloud nothing", async () => {
+      await new MachineLink(machine, {
+        host: "S-1.local",
+        topics: ["status/current"],
+      }).connect();
+
+      expect(connectAsync).toHaveBeenCalledExactlyOnceWith(
+        "mqtt://S-1.local:1883",
+        expect.objectContaining({
+          clientId: expect.stringMatching(/^[0-9a-f]{16}$/),
+          username: "S-1",
+          password: "hash-1",
+        }),
+        false,
+      );
+      expect(mock.credentialRequests).toHaveLength(0);
+      expect(mock.broker.subscribed).toEqual(["438/S-1/status/current"]);
+    });
+
+    it("sends a command with the mode reason of the LAN", async () => {
+      const machineLink = new MachineLink(machine, {
+        host: "S-1.local",
+        topics: [],
+      });
+      await machineLink.connect();
+
+      await machineLink.send("REQUEST-CURRENT-STATE");
+
+      expect(mock.broker.published).toMatchObject([
+        { topic: COMMAND_TOPIC, message: { "mode-reason": "LAPP" } },
+      ]);
+    });
+
+    it("throws an Error for a machine without an apPasswordHash", () => {
+      expect(
+        () => new MachineLink(MACHINE, { host: "S-1.local", topics: [] }),
+      ).toThrow(
+        new Error(
+          "A machine reached at a host needs the apPasswordHash that getMachines reads",
+        ),
+      );
+    });
+  });
+
+  describe("at a host, with an account", () => {
+    const machine = { ...MACHINE, apPasswordHash: "hash-1" };
+
+    function fallingBack(): MachineLink {
+      return new MachineLink(machine, {
+        account: ACCOUNT,
+        host: "S-1.local",
+        topics: [],
+      });
+    }
+
+    // The machine's own broker refuses each connection while `refused`.
+    function refuseLan(): { refused: boolean } {
+      const lan = { refused: true };
+      const connect = vi.mocked(connectAsync).getMockImplementation();
+      vi.mocked(connectAsync).mockImplementation((async (
+        url: string,
+        ...rest: unknown[]
+      ) => {
+        if (lan.refused && url.startsWith("mqtt://")) {
+          throw Object.assign(new Error("connect ECONNREFUSED"), {
+            code: "ECONNREFUSED",
+          });
+        }
+        return (connect as (...args: unknown[]) => unknown)(url, ...rest);
+      }) as typeof connectAsync);
+      return lan;
+    }
+
+    function urls(): string[] {
+      return vi.mocked(connectAsync).mock.calls.map(([url]) => String(url));
+    }
+
+    it("connects to the machine's own broker, and asks the cloud nothing", async () => {
+      const machineLink = fallingBack();
+      expect(machineLink.hostType).toBeNull();
+
+      await machineLink.connect();
+
+      expect(urls()).toEqual(["mqtt://S-1.local:1883"]);
+      expect(mock.credentialRequests).toHaveLength(0);
+      expect(machineLink.hostType).toBe("local");
+    });
+
+    it("connects through the cloud when the machine's own broker fails to open, with the mode reason of the cloud", async () => {
+      refuseLan();
+      const machineLink = fallingBack();
+      await machineLink.connect();
+
+      await machineLink.send("REQUEST-CURRENT-STATE");
+
+      expect(urls()).toEqual([
+        "mqtt://S-1.local:1883",
+        "mqtts://broker.example.com:443",
+      ]);
+      expect(machineLink.hostType).toBe("remote");
+      expect(mock.broker.published).toMatchObject([
+        { message: { "mode-reason": "RAPP" } },
+      ]);
+    });
+
+    it("tries the machine's own broker first again when the connection closes", async () => {
+      const lan = refuseLan();
+      const machineLink = fallingBack();
+      await machineLink.connect();
+
+      lan.refused = false;
+      mock.broker.drop();
+      expect(machineLink.hostType).toBeNull();
+      await vi.waitFor(() => expect(urls()).toHaveLength(3));
+      await vi.waitFor(() => expect(machineLink.hostType).toBe("local"));
+      await machineLink.send("REQUEST-CURRENT-STATE");
+
+      expect(urls()[2]).toBe("mqtt://S-1.local:1883");
+      expect(mock.broker.published).toMatchObject([
+        { message: { "mode-reason": "LAPP" } },
+      ]);
+    });
+
+    it("rejects with the cloud's failure when neither broker opens", async () => {
+      refuseLan();
+      mock.credentialStatusCode = 401;
+
+      await expect(fallingBack().connect()).rejects.toMatchObject({
+        httpStatusCode: 401,
+      });
+    });
   });
 
   describe("request", () => {
@@ -327,10 +465,12 @@ describe("MachineLink", () => {
       const machineLink = await connected();
 
       await machineLink.disconnect();
+      expect(machineLink.hostType).toBeNull();
       await machineLink.connect();
       await machineLink.send("A");
 
       expect(mock.credentialRequests).toHaveLength(2);
+      expect(machineLink.hostType).toBe("remote");
     });
 
     it("calls onDisconnect once it has disconnected, and connects no more by itself", async () => {

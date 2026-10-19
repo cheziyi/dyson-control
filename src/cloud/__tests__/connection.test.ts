@@ -1,55 +1,45 @@
 import { connectAsync } from "mqtt";
 import { describe, expect, it, vi } from "vitest";
 import { DysonConnectionError } from "../../error.js";
-import { DysonConnection } from "../connection.js";
-import { DysonCloudTransport } from "../transport.js";
-import { MACHINE, STATUS_TOPIC, useMockBroker } from "./mocks/broker.js";
-import { ACCOUNT } from "./mocks/cloud.js";
+import { type DysonBroker, DysonConnection } from "../connection.js";
+import { STATUS_TOPIC, useMockBroker } from "./mocks/broker.js";
 
 vi.mock("mqtt", () => ({ connectAsync: vi.fn() }));
 
 const mock = useMockBroker();
 
-function open(machine = MACHINE) {
+const BROKER: DysonBroker = {
+  url: "mqtt://S-1.local:1883",
+  clientId: "S-1",
+  username: "S-1",
+  password: "hash-1",
+};
+
+function open() {
   const received: string[] = [];
   const onClose = vi.fn();
   return {
     received,
     onClose,
-    connection: DysonConnection.open(
-      machine,
-      new DysonCloudTransport({ country: "GB", account: ACCOUNT }),
-      {
-        topics: [STATUS_TOPIC],
-        timeoutInMs: 1000,
-        onMessage: (payload) => received.push(payload),
-        onClose,
-      },
-    ),
+    connection: DysonConnection.open(BROKER, {
+      topics: [STATUS_TOPIC],
+      timeoutInMs: 1000,
+      onMessage: (payload) => received.push(payload),
+      onClose,
+    }),
   };
 }
 
 describe("DysonConnection", () => {
-  it("asks the cloud for credentials, connects with them and subscribes", async () => {
+  it("connects with the broker's login, never reconnects, and subscribes", async () => {
     await open().connection;
 
-    expect(mock.credentialRequests).toMatchObject([
-      {
-        method: "POST",
-        url: "https://appapi.cp.dyson.com/v2/authorize/iot-credentials",
-        headers: { Authorization: "Bearer abc" },
-        body: { Serial: "S-1" },
-      },
-    ]);
     expect(connectAsync).toHaveBeenCalledExactlyOnceWith(
-      "mqtts://broker.example.com:443",
+      "mqtt://S-1.local:1883",
       {
-        ALPNProtocols: ["mqtt"],
-        clientId: "client-1",
-        username:
-          "?x-amz-customauthorizer-name=authorizer" +
-          "&x-amz-customauthorizer-signature=signature" +
-          "&token=value-1",
+        clientId: "S-1",
+        username: "S-1",
+        password: "hash-1",
         connectTimeout: 1000,
         reconnectPeriod: 0,
       },
@@ -77,15 +67,6 @@ describe("DysonConnection", () => {
     expect(mock.broker.published).toEqual([
       { topic: "438/S-1/command", message: { msg: "STATE-SET" } },
     ]);
-  });
-
-  it("rejects with the cloud's status when it hands out no credentials", async () => {
-    mock.credentialStatusCode = 401;
-
-    await expect(open().connection).rejects.toMatchObject({
-      httpStatusCode: 401,
-    });
-    expect(connectAsync).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -127,15 +108,5 @@ describe("DysonConnection", () => {
     await expect(open().connection).rejects.toBeInstanceOf(
       DysonConnectionError,
     );
-  });
-
-  it("rejects with status 501 for a machine on the RabbitMQ broker, and asks for nothing", async () => {
-    await expect(
-      open({ ...MACHINE, remoteBrokerType: "rabbitMq" } as typeof MACHINE)
-        .connection,
-    ).rejects.toMatchObject({ httpStatusCode: 501 });
-
-    expect(mock.credentialRequests).toHaveLength(0);
-    expect(connectAsync).not.toHaveBeenCalled();
   });
 });

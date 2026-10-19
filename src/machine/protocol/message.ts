@@ -1,5 +1,6 @@
 import type { DysonMachine } from "../../cloud/models/machine.js";
-import { MACHINE_MODE_REASON } from "./tables.js";
+import type { HostType } from "../models/hostType.js";
+import { MACHINE_MODE_REASONS } from "./tables.js";
 
 /** A message from a machine: `msg` names it, and each kind of machine reads
  * the fields beside it. */
@@ -20,17 +21,20 @@ export function encodeMachineTopic(
 }
 
 /** The payload of a command: `msg` names it, and `fields` go beside it,
- * such as the `data` of an environmental care machine's `STATE-SET`. */
+ * such as the `data` of an environmental care machine's `STATE-SET`.
+ * `hostType` says whether it goes through the cloud's broker or the
+ * machine's own. */
 export function buildMachineCommand(
   msg: string,
   time: Date,
+  hostType: HostType,
   fields: Record<string, unknown> = {},
 ): string {
   return JSON.stringify({
     msg,
     // In whole seconds, without the milliseconds.
     time: time.toISOString().replace(/\.\d{3}Z$/, "Z"),
-    "mode-reason": MACHINE_MODE_REASON,
+    "mode-reason": MACHINE_MODE_REASONS[hostType],
     ...fields,
   });
 }

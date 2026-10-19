@@ -1,4 +1,6 @@
-import { DysonConnection } from "../cloud/connection.js";
+import { randomBytes } from "node:crypto";
+import { getCloudBroker } from "../cloud/broker.js";
+import { type DysonBroker, DysonConnection } from "../cloud/connection.js";
 import type { DysonAccount } from "../cloud/models/account.js";
 import type { DysonMachine } from "../cloud/models/machine.js";
 import {
@@ -8,6 +10,8 @@ import {
   withRetry,
 } from "../cloud/transport.js";
 import { DysonConnectionError, DysonError } from "../error.js";
+import type { HostType } from "./models/hostType.js";
+import { buildMachineBroker } from "./protocol/broker.js";
 import {
   buildMachineCommand,
   encodeMachineTopic,
@@ -16,10 +20,43 @@ import {
 } from "./protocol/message.js";
 import { MACHINE_TOPICS } from "./protocol/tables.js";
 
-export interface MachineLinkOptions {
-  /** The account the machine is registered to, as `login` resolved with
-   * it. */
-  account: DysonAccount;
+/** Which broker reaches the machine: the cloud's, with `account`, the
+ * machine's own on the LAN, at `host`, or the machine's own first and the
+ * cloud's when it fails to open, with both. */
+export type MachineLinkBrokerOptions =
+  | {
+      /** The account the machine is registered to, as `login` resolved
+       * with it. A connection goes through the cloud's broker, with
+       * credentials the cloud hands out for it; with a `host` as well, only
+       * when the machine's own broker fails to open one. */
+      account: DysonAccount;
+      /** The machine's host name or IPv4 address on the LAN, such as
+       * `<serialNumber>.local`. Each connection tries the machine's own
+       * broker there first, so a host that answers nothing or does not
+       * resolve costs up to `timeoutInMs` before the cloud's. The machine needs the
+       * `apPasswordHash` that `getMachines` reads. */
+      host?: string;
+    }
+  | {
+      /** The machine's host name or IPv4 address on the LAN, such as
+       * `<serialNumber>.local`. Each connection goes to the machine's own
+       * broker there, and nothing is asked of the cloud. The machine needs
+       * the `apPasswordHash` that `getMachines` reads. */
+      host: string;
+      account?: undefined;
+    };
+
+interface BrokerRoute {
+  hostType: HostType;
+  getBroker: () => Promise<DysonBroker>;
+}
+
+interface OpenConnection {
+  connection: DysonConnection;
+  hostType: HostType;
+}
+
+export type MachineLinkOptions = MachineLinkBrokerOptions & {
   /** The topics the machine reports on, each as what follows its root topic
    * level and serial number, such as `status/current`. */
   topics: readonly string[];
@@ -47,7 +84,7 @@ export interface MachineLinkOptions {
    * `disconnect` ended it, or connecting again failed. Nothing connects again
    * until `connect`. Defaults to doing nothing. */
   onDisconnect?: () => void;
-}
+};
 
 interface Waiter {
   msg: string;
@@ -56,23 +93,27 @@ interface Waiter {
   timer: NodeJS.Timeout;
 }
 
-/** The link to one machine through the cloud broker, which the client of
- * each kind of machine sends its commands over. It publishes to the
- * machine's `command` topic and receives from the topics it is given.
+/** The link to one machine through a broker, the cloud's or the machine's
+ * own, which the client of each kind of machine sends its commands over. It
+ * publishes to the machine's `command` topic and receives from the topics it
+ * is given.
  *
  * It holds a connection from `connect` until `disconnect`, connecting again by
- * itself, with new credentials, when the connection closes any other way.
+ * itself, with new credentials from the cloud, when the connection closes any
+ * other way.
  * Every method rejects with a `DysonError` when it fails, after retrying a
  * refused or dropped connection. */
 export class MachineLink {
-  private readonly transport: DysonCloudTransport;
+  // The brokers a connection tries, in order.
+  private readonly routes: BrokerRoute[] = [];
   private readonly timeoutInMs: number;
   private readonly topics: MachineLinkOptions["topics"];
   private readonly retry: MachineLinkOptions["retry"];
   private readonly onMessage: MachineLinkOptions["onMessage"];
   private readonly onReconnect: MachineLinkOptions["onReconnect"];
   private readonly onDisconnect: MachineLinkOptions["onDisconnect"];
-  private connection: Promise<DysonConnection> | undefined;
+  private connection: Promise<OpenConnection> | undefined;
+  private openHostType: HostType | null = null;
   // From `connect` until `disconnect`, or until connecting again fails: whether
   // a call may connect, and a connection that closes is opened again.
   private open = false;
@@ -82,7 +123,8 @@ export class MachineLink {
   private disconnects = 0;
   private readonly waiters = new Set<Waiter>();
 
-  /** It sends nothing. */
+  /** It sends nothing. It throws an `Error` for a `host` and a machine
+   * without an `apPasswordHash`. */
   constructor(
     private readonly machine: DysonMachine,
     options: MachineLinkOptions,
@@ -93,17 +135,47 @@ export class MachineLink {
     this.onMessage = options.onMessage;
     this.onReconnect = options.onReconnect;
     this.onDisconnect = options.onDisconnect;
-    this.transport = new DysonCloudTransport({
-      country: options.account.country,
-      account: options.account,
-      timeoutInMs: this.timeoutInMs,
-      userAgent: options.userAgent,
-    });
+    if (options.host !== undefined) {
+      const { apPasswordHash } = machine;
+      if (apPasswordHash === undefined) {
+        throw new Error(
+          "A machine reached at a host needs the apPasswordHash that getMachines reads",
+        );
+      }
+      // Its own client id, so the broker closes no other program's
+      // connection to the machine when this one opens. The broker refuses
+      // one longer than 23 characters.
+      const broker = buildMachineBroker(
+        machine,
+        options.host,
+        apPasswordHash,
+        randomBytes(8).toString("hex"),
+      );
+      this.routes.push({ hostType: "local", getBroker: async () => broker });
+    }
+    if (options.account !== undefined) {
+      const transport = new DysonCloudTransport({
+        country: options.account.country,
+        account: options.account,
+        timeoutInMs: this.timeoutInMs,
+        userAgent: options.userAgent,
+      });
+      this.routes.push({
+        hostType: "remote",
+        getBroker: () => getCloudBroker(machine, transport),
+      });
+    }
   }
 
-  /** Asks the cloud for credentials, connects to the broker and resolves
-   * once the link receives what the machine sends. Calling it while
-   * connected does nothing. */
+  /** The broker the open connection goes through, or `null` while none is
+   * open. */
+  get hostType(): HostType | null {
+    return this.openHostType;
+  }
+
+  /** Connects to the broker, with new credentials when it is the cloud's,
+   * and resolves once the link receives what the machine sends. Calling it
+   * while connected does nothing. */
   async connect(): Promise<void> {
     this.open = true;
     try {
@@ -141,7 +213,7 @@ export class MachineLink {
     this.open = false;
     this.disconnects += 1;
     // A connection that failed to open left nothing to close.
-    await (await this.connection?.catch(() => undefined))?.close();
+    await (await this.connection?.catch(() => undefined))?.connection.close();
     if (wasOpen) {
       this.onDisconnect?.();
     }
@@ -151,10 +223,10 @@ export class MachineLink {
     msg: string,
     fields?: Record<string, unknown>,
   ): Promise<void> {
-    const connection = await this.openConnection();
+    const { connection, hostType } = await this.openConnection();
     await connection.publish(
       encodeMachineTopic(this.machine, MACHINE_TOPICS.command),
-      buildMachineCommand(msg, new Date(), fields),
+      buildMachineCommand(msg, new Date(), hostType, fields),
     );
   }
 
@@ -188,29 +260,45 @@ export class MachineLink {
     this.onMessage?.(message);
   }
 
-  private openConnection(): Promise<DysonConnection> {
+  private openConnection(): Promise<OpenConnection> {
     if (!this.open) {
       // Not a `DysonConnectionError`, which `withRetry` would repeat.
       return Promise.reject(
         new DysonError("Not connected: call connect first", 503),
       );
     }
-    this.connection ??= DysonConnection.open(this.machine, this.transport, {
-      topics: this.topics.map((topic) =>
-        encodeMachineTopic(this.machine, topic),
-      ),
-      timeoutInMs: this.timeoutInMs,
-      onMessage: (payload) => this.receive(payload),
-      onClose: () => this.drop(),
-    }).catch((error: unknown) => {
+    this.connection ??= this.openFirstRoute().catch((error: unknown) => {
       this.connection = undefined;
       throw error;
     });
     return this.connection;
   }
 
+  // Rejects with what the last route failed with.
+  private async openFirstRoute(): Promise<OpenConnection> {
+    let failure: unknown;
+    for (const route of this.routes) {
+      try {
+        const connection = await DysonConnection.open(await route.getBroker(), {
+          topics: this.topics.map((topic) =>
+            encodeMachineTopic(this.machine, topic),
+          ),
+          timeoutInMs: this.timeoutInMs,
+          onMessage: (payload) => this.receive(payload),
+          onClose: () => this.drop(),
+        });
+        this.openHostType = route.hostType;
+        return { connection, hostType: route.hostType };
+      } catch (error) {
+        failure = error;
+      }
+    }
+    throw failure;
+  }
+
   private drop(): void {
     this.connection = undefined;
+    this.openHostType = null;
     for (const waiter of this.waiters) {
       clearTimeout(waiter.timer);
       waiter.reject(
