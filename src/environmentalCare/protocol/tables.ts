@@ -1,10 +1,18 @@
+import type { Filter } from "../models/capabilities.js";
 import type {
+  CleanCycleState,
   FanAirDirection,
+  FindAndFollowMode,
   HeatMode,
   HumidificationMode,
+  InnerFilterType,
   OscillationAngles,
   OscillationMode,
   OscillationPresetAngle,
+  OscillationState,
+  OuterFilterType,
+  TiltAngle,
+  WaterHardness,
 } from "../models/state.js";
 
 // The types, messages, fields and codes of an environmental care machine.
@@ -140,6 +148,28 @@ export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_ADVANCED_OSCILLATION: readonly str
 export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_AIR_QUALITY_SENSOR: readonly string[] =
   ["739", "960"];
 
+/** The later types that have no filter whose life they report. */
+export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_FILTER_LIFE: readonly string[] = [
+  "635",
+  "739",
+  "949",
+  "960",
+  "965",
+];
+
+/** The types that run a clean cycle, and so take a `waterHardness`. */
+export const ENVIRONMENTAL_CARE_TYPES_WITH_CLEAN_CYCLE: readonly string[] = [
+  "358",
+  "358E",
+  "358K",
+  "965",
+];
+
+/** Each a type and its variant joined, as in
+ * `ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION`. */
+export const ENVIRONMENTAL_CARE_VARIANTS_WITH_FIND_AND_FOLLOW: readonly string[] =
+  ["438N", "527N"];
+
 /** What a machine's firmware can do, as the cloud names it. A later type
  * with either oscillation capability takes oscillation angles: a preset in
  * `ancp` with `advanceOscillationDay0` alone, and two in `osal` and
@@ -154,29 +184,47 @@ export const ENVIRONMENTAL_CARE_COMMANDS = {
   requestCurrentState: "REQUEST-CURRENT-STATE",
   requestProductEnvironmentCurrentSensorData:
     "REQUEST-PRODUCT-ENVIRONMENT-CURRENT-SENSOR-DATA",
+  requestCurrentFaults: "REQUEST-CURRENT-FAULTS",
   stateSet: "STATE-SET",
 } as const;
 
-/** `msg` of a message a machine sends. */
+/** `msg` of a message a machine sends. A `FAULTS-CHANGE` holds each fault
+ * as its old value and its new one, as a `STATE-CHANGE` holds a field. */
 export const ENVIRONMENTAL_CARE_MESSAGES = {
   currentState: "CURRENT-STATE",
   stateChange: "STATE-CHANGE",
   environmentalCurrentSensorData: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
+  currentFaults: "CURRENT-FAULTS",
+  faultsChange: "FAULTS-CHANGE",
 } as const;
 
+/** What follows the root topic level and the serial number in the topic a
+ * machine reports its faults on, beside the one it reports its state and
+ * its sensors on. */
+export const ENVIRONMENTAL_CARE_FAULTS_TOPIC = "status/faults";
+
 /** The fields of `product-state`. A machine of the first generation reports
- * `fanMode` in place of `fanPower` and `autoMode`. Dyson's names for the two
- * oscillation angles and the preset are not known: these three follow its
- * names for the tilt, `tiltLowerAngle` and `tiltUpperAngle`. */
+ * `fanMode` in place of `fanPower` and `autoMode`, and `filterLife` in place
+ * of the inner and the outer filter's. Find and follow takes its mode and
+ * reports its state in fields of its own, with the codes of the
+ * oscillation's. */
 export const ENVIRONMENTAL_CARE_FIELDS = {
   fanPower: "fpwr",
   autoMode: "auto",
   fanMode: "fmod",
   fanSpeed: "fnsp",
   oscillationMode: "oson",
-  oscillationLowerAngle: "osal",
-  oscillationUpperAngle: "osau",
-  oscillationPresetAngle: "ancp",
+  oscillationState: "oscs",
+  oscillationAngleLowerBoundary: "osal",
+  oscillationAngleUpperBoundary: "osau",
+  oscillationAngle: "ancp",
+  tiltMode: "oton",
+  tiltOscillationState: "otcs",
+  tiltType: "anct",
+  tiltLowerAngle: "otal",
+  tiltUpperAngle: "otau",
+  findAndFollowMode: "soon",
+  findAndFollowState: "sost",
   nightMode: "nmod",
   continuousMonitoring: "rhtm",
   sleepTimer: "sltm",
@@ -186,7 +234,31 @@ export const ENVIRONMENTAL_CARE_FIELDS = {
   humidificationMode: "hume",
   autoHumidification: "haut",
   manualHumidificationTarget: "humt",
+  cleanCycleState: "clcr",
+  remainingTimeToNextCleanCycle: "cltr",
+  remainingTimeOfActiveCleanCycle: "cdrr",
+  intervalBetweenCleanCycles: "wath",
+  filterLife: "filf",
+  innerFilterLife: "cflr",
+  outerFilterLife: "hflr",
+  innerFilterType: "cflt",
+  outerFilterType: "hflt",
 } as const;
+
+/** The field each filter's life is reset by, with
+ * `ENVIRONMENTAL_CARE_RESET_FILTER_LIFE_CODE`. */
+export const ENVIRONMENTAL_CARE_RESET_FILTER_LIFE_FIELDS: Readonly<
+  Record<Filter, string>
+> = {
+  filter: "rstf",
+  innerFilter: "rscf",
+  outerFilter: "rshf",
+};
+
+export const ENVIRONMENTAL_CARE_RESET_FILTER_LIFE_CODE = "RSTF";
+
+/** The highest `filterLife` in hours, of a filter that is new. */
+export const ENVIRONMENTAL_CARE_FILTER_LIFE_IN_HOURS = 4300;
 
 /** The fields of the `data` of a sensors message. A high-resolution field is
  * a concentration: micrograms per cubic metre, or parts per million for
@@ -254,8 +326,219 @@ export const ENVIRONMENTAL_CARE_HUMIDIFICATION_MODE_CODES: Readonly<
   humidify: "HUMD",
 };
 
-/** The codes of `oscillationPresetAngle` that are no angle. An angle's code
- * is its degrees, in four digits: `0045`. `custom` is the code a write of
+/** The codes of `oscillationState`, and of `findAndFollowState`. */
+export const ENVIRONMENTAL_CARE_OSCILLATION_STATE_CODES: Readonly<
+  Record<OscillationState, string>
+> = {
+  on: "ON",
+  off: "OFF",
+  idle: "IDLE",
+  invalid: "INV",
+  init: "INIT",
+  scan: "SCAN",
+  acs: "ACS",
+  acm: "ACM",
+  nod: "NOD",
+};
+
+export const ENVIRONMENTAL_CARE_FIND_AND_FOLLOW_MODE_CODES: Readonly<
+  Record<FindAndFollowMode, string>
+> = {
+  off: "OFF",
+  on: "ON",
+  scan: "SCAN",
+};
+
+/** The codes of `tiltType`: `breeze` tilts the machine back and forth, and
+ * `custom` holds it at `tiltLowerAngle`, which `tiltUpperAngle` equals. */
+export const ENVIRONMENTAL_CARE_TILT_TYPE_CODES = {
+  breeze: "BRZE",
+  custom: "CUST",
+} as const;
+
+/** The angle a tilt is written with, in degrees: `tiltLowerAngle` and
+ * `tiltUpperAngle` both take it. A `breeze` sends `0359`. */
+export const ENVIRONMENTAL_CARE_TILT_ANGLE_CODES: Readonly<
+  Record<TiltAngle, number>
+> = {
+  0: 0,
+  25: 25,
+  50: 50,
+  breeze: 359,
+};
+
+/** The tilt angle that blows the air backward: the machine is written
+ * `fanAirDirection` `backward` with it, and `forward` with every other. */
+export const ENVIRONMENTAL_CARE_BACKWARD_TILT_ANGLE: TiltAngle = 50;
+
+export const ENVIRONMENTAL_CARE_CLEAN_CYCLE_STATE_CODES: Readonly<
+  Record<CleanCycleState, string>
+> = {
+  setup: "CLSE",
+  active: "CLAC",
+  paused: "CLPA",
+  incomplete: "CLIC",
+  complete: "CLCM",
+  notInCleanCycle: "CLNO",
+};
+
+/** The `intervalBetweenCleanCycles` each water hardness sets, in hours. */
+export const ENVIRONMENTAL_CARE_WATER_HARDNESS_INTERVALS_IN_HOURS: Readonly<
+  Record<WaterHardness, number>
+> = {
+  soft: 2025,
+  medium: 1350,
+  hard: 675,
+};
+
+export const ENVIRONMENTAL_CARE_INNER_FILTER_TYPE_CODES: Readonly<
+  Record<InnerFilterType, string>
+> = {
+  carbon: "CARF",
+  sco: "SCOF",
+  scog: "SCOG",
+  scoh: "SCOH",
+  car1: "CAR1",
+  none: "NONE",
+};
+
+export const ENVIRONMENTAL_CARE_OUTER_FILTER_TYPE_CODES: Readonly<
+  Record<OuterFilterType, string>
+> = {
+  hepa: "GHEP",
+  hepaPtfe: "PHEP",
+  gcom: "GCOM",
+  pcom: "PCOM",
+  gcok: "GCOK",
+  pcok: "PCOK",
+  ehep: "EHEP",
+  hsco: "HSCO",
+  estf: "ESTF",
+  esco: "ESCO",
+  ecar: "ECAR",
+  escc: "ESCC",
+  none: "NONE",
+};
+
+/** The groups of a faults message, each a fault's code -> its value. */
+export const ENVIRONMENTAL_CARE_FAULT_GROUPS = {
+  productErrors: "product-errors",
+  productWarnings: "product-warnings",
+  moduleErrors: "module-errors",
+  moduleWarnings: "module-warnings",
+} as const;
+
+/** The value of a fault the machine has: every other is `OK`. */
+export const ENVIRONMENTAL_CARE_FAULT_FAIL_CODE = "FAIL";
+
+/** Each fault's code -> Dyson's name for it, whichever group reports it. */
+export const ENVIRONMENTAL_CARE_FAULTS: Readonly<Record<string, string>> = {
+  amf1: "airflowMotorFocDuration",
+  amf2: "airflowMotorOverVolt",
+  amf3: "airflowMotorUnderVolt",
+  amf4: "airflowMotorOverTemperature",
+  amf5: "airflowMotorStartUp",
+  amf6: "airflowMotorSpeedFeedback",
+  amf7: "airflowMotorOverCurrent",
+  amf8: "airflowMotorSoftwareError",
+  amf9: "airflowMotorInvalid",
+  fmco: "motorController",
+  stto: "bldcStallTimeout",
+  hall: "bldcHallMonitor",
+  hamp: "bldcOverCurrent",
+  stal: "bldcStallCurrent",
+  shrt: "bldcShortCurrent",
+  cnfg: "bldcConfigError",
+  com1: "communicationsAirflowMotor",
+  com2: "wifiModuleFail",
+  com3: "heaterCommunicationsFailure",
+  com4: "communicationsAirflowMotorBootFailure",
+  com6: "heaterBootFailure",
+  com7: "coreConnectionIntermittent",
+  com8: "receiveBufferOverflow",
+  wdog: "watchDogReset",
+  ibus: "i2cBus",
+  ilss: "illegalSystemState",
+  fs00: "systemControllerFlashFailure",
+  fs01: "flashMemoryFailure",
+  nvmw: "nvmWrite",
+  nvmr: "nvmRead",
+  wfma: "wifiModuleAccess",
+  wfhb: "wifiHeartbeat",
+  wfcp: "connectionProtocol",
+  hioc: "generation1HeaterInputOverCurrent",
+  hilc: "generation1HeaterInputLowCurrent",
+  htri: "generation1HeaterTriac",
+  hamb: "generation1HeaterAmbientTemperatureLoss",
+  povi: "generation1HeaterPlugOverCurrent",
+  hctf: "generation1HeaterTriacCommunications",
+  hvmi: "generation1HeaterTriacVariant",
+  tilt: "generation1HeaterTiltDetection",
+  ht01: "generation2HeaterInputOverCurrent",
+  ht02: "generation2HeaterInputLowCurrent",
+  ht03: "generation2HeaterTriac",
+  ht04: "generation2HeaterPlugOverCurrent",
+  ht05: "generation2HeaterTriacVariantMismatch",
+  ht06: "generation2HeaterAmbientTemperatureLoss",
+  ht07: "generation2HeaterTiltSensor",
+  ht08: "generation2HeaterIllegalCountry",
+  ht09: "generation2HeaterVariantIdError",
+  ht0a: "generation2HeaterCurrentSensor",
+  dsts: "particleSensor",
+  vocs: "volatileOrganicCompoundsSensor",
+  "t&hs": "temperatureHumiditySensor",
+  sen1: "dustSensor",
+  sen2: "gasSensor",
+  sen3: "temperatureSensor",
+  sen4: "humiditySensor",
+  sen5: "filterPressureSensor",
+  sen6: "filterAbsence",
+  sen7: "formaldehydeModule",
+  sen8: "carbonDioxideModule",
+  sena: "fanSpeedSensor",
+  fltr: "filterReplacement",
+  ste1: "panOscillation",
+  ste2: "flowAngle",
+  bosl: "barrelOscillationLeft",
+  bosr: "barrelOscillationRight",
+  so01: "findAndFollowVisionModule",
+  so02: "findAndFollowOscillationObstructed",
+  uled: "uvcLed",
+  uvc1: "uvSterilization",
+  ion1: "ionization",
+  wpmp: "waterPumpFailure",
+  prot: "pumpRotor",
+  tnke: "tankEmpty",
+  tnkp: "tankUndetected",
+  etwd: "evaporationTrayOverflowDetected",
+  etws: "evaporationTrayOverflowExtended",
+  cldu: "cleanCycleOverdue",
+  szme: "moduleErrorExceedsAllocatedSizeBounds",
+  szmw: "moduleWarningExceedsAllocatedSizeBounds",
+  szps: "productStatusWarningExceedsAllocatedSizeBounds",
+  szpe: "productErrorWarningExceedsAllocatedSizeBounds",
+  szpw: "productWarningExceedsAllocatedSizeBounds",
+  szed: "environmentalDataExceedsAllocatedSizeBounds",
+  lspd: "environmentalDataLost",
+  szpi: "productIdExceedsAllocatedSizeBounds",
+  szpp: "productPasswordExceedsAllocatedSizeBounds",
+  szhv: "productHardwareVersionExceedsAllocatedSizeBounds",
+  szbv: "productBootloaderVersionExceedsAllocatedSizeBounds",
+  szav: "productSoftwareVersionExceedsAllocatedSizeBounds",
+  srnk: "serialCdpReceivedNak",
+  stac: "serialCdpAckTimeout",
+  strs: "serialCdpResponseTimeout",
+  srmi: "serialCdpReceivedInvalidMessage",
+  srmu: "serialCdpReceivedUnknownMessage",
+  nwcs: "networkCloudConnectIssue",
+  nwts: "timestampConnectIssue",
+  nwps: "provisioningConnectIssue",
+  nwss: "schedulerConnectIssue",
+  nwds: "dialbackConnectIssue",
+};
+
+/** The codes of `oscillationAngle` that are no angle. An angle's code is its
+ * degrees, in four digits: `0045`. `custom` is the code a write of
  * `oscillationAngles` sends with them. */
 export const ENVIRONMENTAL_CARE_OSCILLATION_PRESET_ANGLE_CODES = {
   breeze: "BRZE",

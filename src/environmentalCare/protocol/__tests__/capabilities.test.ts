@@ -27,10 +27,15 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       humidificationModes: [],
       autoHumidification: false,
       oscillation: "advanced",
+      oscillationModes: ["off", "on", "idleOff", "idleOn"],
       oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 355 },
       oscillationAngleWidthsInDegrees: [0, 45, 90, 180, 350],
       oscillationPresetAnglesInDegrees: [],
+      tiltAnglesInDegrees: [],
+      findAndFollowModes: [],
+      waterHardnesses: [],
       hasAirQualitySensor: true,
+      filters: ["innerFilter", "outerFilter"],
     });
   });
 
@@ -58,6 +63,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
     for (const firmwareCapabilities of [undefined, ["Scheduling"]]) {
       expect(decode({ type: "438", firmwareCapabilities })).toMatchObject({
         oscillation: "basic",
+        oscillationModes: ["off", "on"],
         oscillationAngles: null,
         oscillationPresetAnglesInDegrees: [],
       });
@@ -82,19 +88,27 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       humidificationModes: ["off", "humidify"],
       autoHumidification: true,
       oscillation: "barrel",
+      oscillationModes: ["off", "on", "idleOff", "idleOn"],
       oscillationAngles: null,
       oscillationAngleWidthsInDegrees: [],
       oscillationPresetAnglesInDegrees: [45, 90, "breeze"],
+      tiltAnglesInDegrees: [],
+      findAndFollowModes: [],
+      waterHardnesses: ["soft", "medium", "hard"],
       hasAirQualitySensor: true,
+      filters: ["innerFilter", "outerFilter"],
     });
   });
 
-  it("reads no oscillation for a 965, which humidifies by hand alone", () => {
+  it("reads no oscillation and no filter life for a 965, which humidifies by hand alone", () => {
     for (const firmwareCapabilities of [undefined, DAY_1]) {
       expect(decode({ type: "965", firmwareCapabilities })).toMatchObject({
         humidificationModes: ["off", "humidify"],
         autoHumidification: false,
         oscillation: "none",
+        oscillationModes: [],
+        waterHardnesses: ["soft", "medium", "hard"],
+        filters: [],
       });
     }
   });
@@ -102,7 +116,21 @@ describe("decodeEnvironmentalCareCapabilities", () => {
   it("reads a tilt oscillation, whatever the firmware", () => {
     expect(decode({ type: "664", firmwareCapabilities: DAY_1 })).toMatchObject({
       oscillation: "tilt",
+      oscillationModes: [],
       oscillationAngles: null,
+      tiltAnglesInDegrees: [0, 25, 50, "breeze"],
+    });
+  });
+
+  it("reads find and follow from the variants that have it", () => {
+    expect(decode({ type: "438", variant: "N" })).toMatchObject({
+      findAndFollowModes: ["off", "on", "scan"],
+    });
+    expect(decode({ type: "527", variant: "N" })).toMatchObject({
+      findAndFollowModes: ["off", "on", "scan"],
+    });
+    expect(decode({ type: "438", variant: "M" })).toMatchObject({
+      findAndFollowModes: [],
     });
   });
 
@@ -121,10 +149,11 @@ describe("decodeEnvironmentalCareCapabilities", () => {
     expect(decode({ type: "997" })).toMatchObject({ oscillation: "basic" });
   });
 
-  it("reads an on-and-off oscillation for the first generation, whatever its firmware", () => {
+  it("reads an on-and-off oscillation and one filter for the first generation, whatever its firmware", () => {
     expect(decode({ type: "455", firmwareCapabilities: DAY_1 })).toMatchObject({
       oscillation: "basic",
       oscillationAngles: null,
+      filters: ["filter"],
     });
   });
 
@@ -142,10 +171,11 @@ describe("decodeEnvironmentalCareCapabilities", () => {
     });
   });
 
-  it("reads no continuous monitoring and no air quality sensor for the types without a sensor", () => {
+  it("reads no continuous monitoring, no air quality sensor and no filter life for the types without a sensor", () => {
     expect(decode({ type: "739" })).toMatchObject({
       continuousMonitoring: false,
       hasAirQualitySensor: false,
+      filters: [],
     });
   });
 });

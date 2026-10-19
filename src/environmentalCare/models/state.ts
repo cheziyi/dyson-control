@@ -14,9 +14,87 @@ export const OSCILLATION_MODES = [
   "scan",
 ] as const;
 
-/** `on` and `off` are the two known to be written. What a machine means by
- * the other three is not known: see UNSUPPORTED.md. */
+/** `idleOn` and `idleOff` go in place of `on` and `off` to a machine whose
+ * oscillation is paused: whose `oscillationState` is `idle`, or whose
+ * `oscillationMode` is already idle. A machine reports `scan` and is never
+ * written it: see UNSUPPORTED.md. */
 export type OscillationMode = (typeof OSCILLATION_MODES)[number];
+
+export const OSCILLATION_STATES = [
+  "on",
+  "off",
+  "idle",
+  "invalid",
+  "init",
+  "scan",
+  "acs",
+  "acm",
+  "nod",
+] as const;
+
+/** What a machine's oscillation, or its find and follow, is doing. `idle`
+ * is an oscillation paused while the machine stands by. For find and
+ * follow, `scan` is looking for people, `acs` and `acm` following one, and
+ * `nod` dormant. What else `init`, `acs`, `acm` and `nod` mean is not known:
+ * see UNSUPPORTED.md. */
+export type OscillationState = (typeof OSCILLATION_STATES)[number];
+
+export const TILT_ANGLES = [0, 25, 50, "breeze"] as const;
+
+/** The angle a machine tilts to, in degrees, or a breeze, which tilts it
+ * back and forth. */
+export type TiltAngle = (typeof TILT_ANGLES)[number];
+
+export const FIND_AND_FOLLOW_MODES = ["off", "on", "scan"] as const;
+
+/** `on` follows the people the machine finds, and `scan` looks for them. */
+export type FindAndFollowMode = (typeof FIND_AND_FOLLOW_MODES)[number];
+
+export const CLEAN_CYCLE_STATES = [
+  "setup",
+  "active",
+  "paused",
+  "incomplete",
+  "complete",
+  "notInCleanCycle",
+] as const;
+
+export type CleanCycleState = (typeof CLEAN_CYCLE_STATES)[number];
+
+export const WATER_HARDNESSES = ["soft", "medium", "hard"] as const;
+
+/** The hardness of the water a humidifier takes, which sets how often it
+ * asks for a clean cycle. */
+export type WaterHardness = (typeof WATER_HARDNESSES)[number];
+
+export const INNER_FILTER_TYPES = [
+  "carbon",
+  "sco",
+  "scog",
+  "scoh",
+  "car1",
+  "none",
+] as const;
+
+export type InnerFilterType = (typeof INNER_FILTER_TYPES)[number];
+
+export const OUTER_FILTER_TYPES = [
+  "hepa",
+  "hepaPtfe",
+  "gcom",
+  "pcom",
+  "gcok",
+  "pcok",
+  "ehep",
+  "hsco",
+  "estf",
+  "esco",
+  "ecar",
+  "escc",
+  "none",
+] as const;
+
+export type OuterFilterType = (typeof OUTER_FILTER_TYPES)[number];
 
 export const FAN_AIR_DIRECTIONS = ["forward", "backward"] as const;
 
@@ -55,7 +133,8 @@ export interface OscillationAngles {
 
 /** Every field but `fanPower` is `null` where the machine reports none, or
  * a value outside the field's type: a fan without a heater reports no
- * `heatMode`. */
+ * `heatMode`. The fields from `oscillationState` on are readings, which
+ * `setState` does not take. */
 export interface EnvironmentalCareState {
   fanPower: boolean;
   /** Whether the machine picks the fan speed itself. */
@@ -81,16 +160,47 @@ export interface EnvironmentalCareState {
   /** Whether the machine picks the target humidity itself. */
   autoHumidification: boolean | null;
   manualHumidificationTargetInPercent: number | null;
+  tiltAngleInDegrees: TiltAngle | null;
+  findAndFollowMode: FindAndFollowMode | null;
+  waterHardness: WaterHardness | null;
+  oscillationState: OscillationState | null;
+  findAndFollowState: OscillationState | null;
+  cleanCycleState: CleanCycleState | null;
+  remainingTimeToNextCleanCycleInHours: number | null;
+  remainingTimeOfActiveCleanCycleInMinutes: number | null;
+  /** The life left in the filter of a machine of the first generation, from
+   * 4300 hours when new. A later machine reports its inner and its outer
+   * filter's instead. */
+  filterLifeInHours: number | null;
+  innerFilterLifeInPercent: number | null;
+  outerFilterLifeInPercent: number | null;
+  innerFilterType: InnerFilterType | null;
+  outerFilterType: OuterFilterType | null;
 }
 
-/** A partial `EnvironmentalCareState`, as
+/** The fields of `EnvironmentalCareState` the machine reports and is not
+ * written. */
+export type EnvironmentalCareReading =
+  | "oscillationState"
+  | "findAndFollowState"
+  | "cleanCycleState"
+  | "remainingTimeToNextCleanCycleInHours"
+  | "remainingTimeOfActiveCleanCycleInMinutes"
+  | "filterLifeInHours"
+  | "innerFilterLifeInPercent"
+  | "outerFilterLifeInPercent"
+  | "innerFilterType"
+  | "outerFilterType";
+
+/** A partial `EnvironmentalCareState` without its readings, as
  * `EnvironmentalCareClient.setState` takes it: set only the fields to
  * change, and only those `EnvironmentalCareClient.capabilities` says the
  * machine takes. */
 export type EnvironmentalCareControl = {
-  [Field in keyof EnvironmentalCareState]?: NonNullable<
-    EnvironmentalCareState[Field]
-  >;
+  [Field in Exclude<
+    keyof EnvironmentalCareState,
+    EnvironmentalCareReading
+  >]?: NonNullable<EnvironmentalCareState[Field]>;
 };
 
 /** A reading is `null` when the machine does not report it.

@@ -7,6 +7,7 @@ import type {
 import { decodeEnvironmentalCareCapabilities } from "../capabilities.js";
 import {
   applyEnvironmentalCareControl,
+  buildEnvironmentalCareFilterLifeReset,
   parseEnvironmentalCareSensors,
   parseEnvironmentalCareState,
 } from "../state.js";
@@ -67,6 +68,19 @@ const NOTHING_REPORTED: EnvironmentalCareState = {
   humidificationMode: null,
   autoHumidification: null,
   manualHumidificationTargetInPercent: null,
+  tiltAngleInDegrees: null,
+  findAndFollowMode: null,
+  waterHardness: null,
+  oscillationState: null,
+  findAndFollowState: null,
+  cleanCycleState: null,
+  remainingTimeToNextCleanCycleInHours: null,
+  remainingTimeOfActiveCleanCycleInMinutes: null,
+  filterLifeInHours: null,
+  innerFilterLifeInPercent: null,
+  outerFilterLifeInPercent: null,
+  innerFilterType: null,
+  outerFilterType: null,
 };
 
 describe("parseEnvironmentalCareState", () => {
@@ -164,6 +178,107 @@ describe("parseEnvironmentalCareState", () => {
       parseEnvironmentalCareState({ fpwr: "ON", ancp }, LATER)
         .oscillationPresetAngleInDegrees,
     ).toBe(angle);
+  });
+
+  it.each([
+    ["ON", "on"],
+    ["IDLE", "idle"],
+    ["INV", "invalid"],
+    ["NOD", "nod"],
+    ["PAUSE", null],
+  ])("reads an oscillation state of %s", (oscs, oscillationState) => {
+    expect(
+      parseEnvironmentalCareState({ fpwr: "ON", oscs }, LATER).oscillationState,
+    ).toBe(oscillationState);
+  });
+
+  it("reads find and follow's mode and its state", () => {
+    expect(
+      parseEnvironmentalCareState(
+        { fpwr: "ON", soon: "SCAN", sost: "ACS" },
+        LATER,
+      ),
+    ).toMatchObject({ findAndFollowMode: "scan", findAndFollowState: "acs" });
+  });
+
+  it.each([
+    [
+      "a breeze",
+      { otcs: "ON", anct: "BRZE", otal: "0359", otau: "0359" },
+      "breeze",
+    ],
+    ["an angle", { otcs: "OFF", anct: "CUST", otal: "0025", otau: "0025" }, 25],
+    ["no angle", { otcs: "OFF", anct: "CUST", otal: "0000", otau: "0000" }, 0],
+    [
+      "an angle that blows the air backward",
+      { otcs: "OFF", anct: "CUST", otal: "0000", otau: "0000", fdir: "OFF" },
+      50,
+    ],
+    [
+      "two angles",
+      { otcs: "OFF", anct: "CUST", otal: "0000", otau: "0025" },
+      null,
+    ],
+    [
+      "an angle of no preset",
+      { otcs: "OFF", anct: "CUST", otal: "0010", otau: "0010" },
+      null,
+    ],
+    ["a breeze that is not tilting", { otcs: "OFF", anct: "BRZE" }, null],
+  ])("reads a tilt of %s", (_name, fields, tiltAngleInDegrees) => {
+    expect(
+      parseEnvironmentalCareState({ fpwr: "ON", ...fields }, LATER)
+        .tiltAngleInDegrees,
+    ).toBe(tiltAngleInDegrees);
+  });
+
+  it("reads a humidifier's clean cycle and the water hardness it is set for", () => {
+    expect(
+      parseEnvironmentalCareState(
+        { fpwr: "OFF", clcr: "CLAC", cltr: "0036", cdrr: "0042", wath: "1350" },
+        LATER,
+      ),
+    ).toMatchObject({
+      cleanCycleState: "active",
+      remainingTimeToNextCleanCycleInHours: 36,
+      remainingTimeOfActiveCleanCycleInMinutes: 42,
+      waterHardness: "medium",
+    });
+    expect(
+      parseEnvironmentalCareState({ fpwr: "OFF", wath: "1000" }, LATER)
+        .waterHardness,
+    ).toBeNull();
+  });
+
+  it("reads the life and the type of the inner and the outer filter", () => {
+    expect(
+      parseEnvironmentalCareState(
+        { fpwr: "ON", cflr: "0067", cflt: "CARF", hflr: "0073", hflt: "HSCO" },
+        LATER,
+      ),
+    ).toMatchObject({
+      innerFilterLifeInPercent: 67,
+      outerFilterLifeInPercent: 73,
+      innerFilterType: "carbon",
+      outerFilterType: "hsco",
+    });
+  });
+
+  it("reads a filter life above the most it holds as null", () => {
+    expect(
+      parseEnvironmentalCareState(
+        { fmod: "FAN", filf: "4301", cflr: "0101", hflr: "INV" },
+        GENERATION_1,
+      ),
+    ).toMatchObject({
+      filterLifeInHours: null,
+      innerFilterLifeInPercent: null,
+      outerFilterLifeInPercent: null,
+    });
+    expect(
+      parseEnvironmentalCareState({ fmod: "FAN", filf: "4300" }, GENERATION_1)
+        .filterLifeInHours,
+    ).toBe(4300);
   });
 
   it("reads the minutes left on the sleep timer", () => {
@@ -268,6 +383,46 @@ describe("applyEnvironmentalCareControl", () => {
       }),
     ).toEqual({ oson: "OION", ancp: "BRZE" });
   });
+
+  it.each([
+    [0, { fdir: "ON", oton: "OFF", anct: "CUST", otau: "0000", otal: "0000" }],
+    [25, { fdir: "ON", oton: "OFF", anct: "CUST", otau: "0025", otal: "0025" }],
+    [
+      50,
+      { fdir: "OFF", oton: "OFF", anct: "CUST", otau: "0050", otal: "0050" },
+    ],
+    [
+      "breeze",
+      { fdir: "ON", oton: "ON", anct: "BRZE", otau: "0359", otal: "0359" },
+    ],
+  ] as const)("switches the machine on to tilt to %s", (angle, fields) => {
+    expect(apply("664", { tiltAngleInDegrees: angle })).toEqual({
+      fpwr: "ON",
+      ...fields,
+    });
+  });
+
+  it.each([
+    ["on", { fpwr: "ON", soon: "ON" }],
+    ["scan", { fpwr: "ON", soon: "SCAN" }],
+    ["off", { soon: "OFF" }],
+  ] as const)(
+    "writes a find and follow mode of %s",
+    (findAndFollowMode, data) => {
+      expect(apply("438", { findAndFollowMode })).toEqual(data);
+    },
+  );
+
+  it.each([
+    ["soft", "2025"],
+    ["medium", "1350"],
+    ["hard", "0675"],
+  ] as const)(
+    "writes a water hardness of %s as its hours between clean cycles",
+    (waterHardness, wath) => {
+      expect(apply("358", { waterHardness })).toEqual({ wath });
+    },
+  );
 
   it("encodes each mode", () => {
     expect(
@@ -378,6 +533,18 @@ describe("applyEnvironmentalCareControl", () => {
           targetTemperatureInC: 22,
         }),
       ).toEqual({ hmax: "2950" });
+    });
+  });
+});
+
+describe("buildEnvironmentalCareFilterLifeReset", () => {
+  it.each([
+    ["filter", "rstf"],
+    ["innerFilter", "rscf"],
+    ["outerFilter", "rshf"],
+  ] as const)("resets the %s by its own field", (filter, field) => {
+    expect(buildEnvironmentalCareFilterLifeReset(filter)).toEqual({
+      [field]: "RSTF",
     });
   });
 });

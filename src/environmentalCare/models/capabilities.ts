@@ -3,10 +3,14 @@
 
 import type {
   FanAirDirection,
+  FindAndFollowMode,
   HeatMode,
   HumidificationMode,
   OscillationAngles,
+  OscillationMode,
   OscillationPresetAngle,
+  TiltAngle,
+  WaterHardness,
 } from "./state.js";
 
 /** How a machine oscillates, by Dyson's name for each: `basic` on and off,
@@ -14,9 +18,16 @@ import type {
  * breeze, and `tilt` on its axis. */
 export type OscillationKind = "none" | "basic" | "advanced" | "barrel" | "tilt";
 
-/** Each field but `oscillation`, `oscillationAngleWidthsInDegrees` and
- * `hasAirQualitySensor` is named for the `EnvironmentalCareState` field it
- * governs, and says whether `setState`
+export const FILTERS = ["filter", "innerFilter", "outerFilter"] as const;
+
+/** A filter whose life a machine reports and has reset: a machine of the
+ * first generation has one `filter`, and a later one an `innerFilter` and
+ * an `outerFilter`. */
+export type Filter = (typeof FILTERS)[number];
+
+/** Each field but `oscillation`, `oscillationAngleWidthsInDegrees`,
+ * `hasAirQualitySensor` and `filters` is named for the
+ * `EnvironmentalCareState` field it governs, and says whether `setState`
  * takes that field or which values it takes. An empty list is a field the
  * machine does not take, and `setState` rejects a field the machine does
  * not take. */
@@ -29,9 +40,12 @@ export interface EnvironmentalCareCapabilities {
   /** Also governs `manualHumidificationTargetInPercent`. */
   humidificationModes: HumidificationMode[];
   autoHumidification: boolean;
-  /** `setState` writes `oscillationMode` to every oscillation but `tilt`,
-   * which it writes nothing to. */
+  /** A `tilt` takes `tiltAnglesInDegrees` in place of the fields of every
+   * other oscillation. */
   oscillation: OscillationKind;
+  /** `off` and `on` for a `basic` oscillation, and `idleOff` and `idleOn`
+   * as well for an `advanced` or a `barrel` one. */
+  oscillationModes: OscillationMode[];
   /** The widest `oscillationAngles` the machine takes: it takes two angles
    * between these, the lower first, apart by one of
    * `oscillationAngleWidthsInDegrees`. `null` for a machine that takes
@@ -42,7 +56,14 @@ export interface EnvironmentalCareCapabilities {
    * points the machine one way without oscillating. */
   oscillationAngleWidthsInDegrees: number[];
   oscillationPresetAnglesInDegrees: OscillationPresetAngle[];
+  tiltAnglesInDegrees: TiltAngle[];
+  findAndFollowModes: FindAndFollowMode[];
+  /** Taken by a machine that runs a clean cycle. */
+  waterHardnesses: WaterHardness[];
   /** Whether the machine measures the air, and so reports the pollutant
    * readings of `EnvironmentalCareSensors`. */
   hasAirQualitySensor: boolean;
+  /** The filters whose life the machine reports, which
+   * `EnvironmentalCareClient.resetFilterLife` takes. */
+  filters: Filter[];
 }

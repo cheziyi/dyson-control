@@ -5,9 +5,10 @@
 A client reaches a machine through the Dyson cloud alone. On `connect` it
 posts the machine's serial number to `/v2/authorize/iot-credentials`,
 opens an MQTT connection over TLS to the broker the reply names, on port 443
-with the ALPN protocol `mqtt`, and subscribes to the machine's
-`status/current` topic. Every command goes to the machine's `command` topic
-on that connection.
+with the ALPN protocol `mqtt`, and subscribes to the topics its client
+names: an environmental care machine's `status/current` and
+`status/faults`. Every command goes to the machine's `command` topic on that
+connection.
 
 Not built: the machine's own broker on the LAN first, with the cloud as the
 fallback.
@@ -181,6 +182,34 @@ Not built: skipping a write of a value the machine already reports.
 - The client holds no state to compare with, so it sends every field it is
   given that the machine takes.
 
+A `tiltAngleInDegrees` sends `fpwr`, `fdir`, `oton`, `anct`, `otal` and
+`otau` in one `STATE-SET`: `fdir` is `OFF` for a tilt of 50 degrees and `ON`
+for every other, and a breeze is `oton` `ON` with both angles `0359`.
+
+Not built: three commands for a tilt, the power, then `fdir`, then the tilt,
+as the MyDyson app sends them.
+
+- `setState` sends one command for a control, and a machine takes a
+  `findAndFollowMode` with its power in one, as the app sends it.
+
+`setState` takes `idleOn` and `idleOff` for an `advanced` or a `barrel`
+oscillation alone, and `on` and `off` for a `basic` one. A machine is written
+`OION` when its oscillation goes on while it reports an `oson` of `OIOF` or
+an `oscs` of `IDLE`, and `OIOF` when it goes off while `OION`.
+
+Rejected: sending an `oscillationMode` of `scan` as given.
+
+- A machine is never written `SCAN` in `oson`: find and follow takes it, in
+  `soon`.
+
+`resetFilterLife` sends one field, `RSTF` in `rstf`, `rscf` or `rshf`.
+
+Not built: `fmod` `OFF` with a reset, for a machine of the first generation
+that is off, as the MyDyson app sends it.
+
+- The client reads nothing before a write, so it has no state to tell a
+  machine that is off by.
+
 Not built: `hmod` `OFF` with a power on, for a heater whose serial number is
 a US one.
 
@@ -210,6 +239,11 @@ capabilities.
   firmware capabilities, and the air direction the variant.
 - A row for a type the package learns later would have to be written whole,
   where the tables take each new fact as one list.
+
+`findAndFollowModes` holds find and follow's modes for a `438` and a `527`
+of variant `N` alone: the MyDyson app carries find and follow's pictures for
+those two, and its own test of which machines have find and follow does not
+read as written.
 
 Rejected: `parseEnvironmentalCareCapabilities`, a function exported beside
 the client.
@@ -267,6 +301,22 @@ for the state that changed while it received nothing.
 - The client asks a machine only when called, and `onReconnect` tells the
   caller when to call `getState()`.
 
+
+## Faults
+
+A client receives the machine's `status/faults` topic from `connect`, beside
+`status/current`: the machine answers a `REQUEST-CURRENT-FAULTS` there, with
+a `CURRENT-FAULTS`. `MachineLink` subscribes to the topics its client names,
+so the faults topic stays the environmental care machine's.
+
+`ENVIRONMENTAL_CARE_FAULTS` names each code by its name in the MyDyson app's
+environmental care faults, and a code missing there by the name of its field
+in the app's faults message, the one that names the `module` groups' codes.
+
+Not built: a `REQUEST-CURRENT-FAULTS` with each state the machine sends, as
+the MyDyson app asks.
+
+- Polling is the caller's: `getFaults()` asks when called.
 
 ## Names and modes
 

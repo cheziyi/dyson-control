@@ -34,9 +34,9 @@ export class Broker extends EventEmitter {
   grantedQos = 1;
   connected = true;
 
-  async subscribeAsync(topic: string): Promise<{ qos: number }[]> {
-    this.subscribed.push(topic);
-    return [{ qos: this.grantedQos }];
+  async subscribeAsync(topics: string[]): Promise<{ qos: number }[]> {
+    this.subscribed.push(...topics);
+    return topics.map(() => ({ qos: this.grantedQos }));
   }
 
   async publishAsync(topic: string, payload: string): Promise<void> {

@@ -20,7 +20,7 @@ function open(machine = MACHINE) {
       machine,
       new DysonCloudTransport({ country: "GB", account: ACCOUNT }),
       {
-        topic: STATUS_TOPIC,
+        topics: [STATUS_TOPIC],
         timeoutInMs: 1000,
         onMessage: (payload) => received.push(payload),
         onClose,

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMMAND_TOPIC,
   MACHINE,
+  STATUS_TOPIC,
   useMockBroker,
 } from "../../cloud/__tests__/mocks/broker.js";
 import { ACCOUNT } from "../../cloud/__tests__/mocks/cloud.js";
@@ -28,6 +29,13 @@ function answer(productState: Record<string, string> = PRODUCT_STATE): void {
       {
         msg: "ENVIRONMENTAL-CURRENT-SENSOR-DATA",
         data: { tact: "2952", hact: "0055" },
+      },
+    ],
+    "REQUEST-CURRENT-FAULTS": [
+      {
+        msg: "CURRENT-FAULTS",
+        "product-errors": { sen1: "OK" },
+        "product-warnings": { fltr: "FAIL" },
       },
     ],
   };
@@ -96,6 +104,58 @@ describe("EnvironmentalCareClient", () => {
     expect(mock.broker.published).toMatchObject([
       { topic: COMMAND_TOPIC, message: { msg: "REQUEST-CURRENT-STATE" } },
     ]);
+  });
+
+  it("receives from the topics of the state and of the faults", async () => {
+    await connected();
+
+    expect(mock.broker.subscribed).toEqual([
+      STATUS_TOPIC,
+      "438/S-1/status/faults",
+    ]);
+  });
+
+  it("reads the faults with one request", async () => {
+    await expect((await connected()).getFaults()).resolves.toEqual({
+      productErrors: [],
+      productWarnings: ["filterReplacement"],
+      moduleErrors: [],
+      moduleWarnings: [],
+    });
+    expect(mock.broker.commands()).toEqual(["REQUEST-CURRENT-FAULTS"]);
+  });
+
+  it("rejects with status 502 for faults without a group", async () => {
+    mock.broker.answers = {
+      "REQUEST-CURRENT-FAULTS": [{ msg: "CURRENT-FAULTS" }],
+    };
+
+    await expect((await connected()).getFaults()).rejects.toMatchObject({
+      httpStatusCode: 502,
+    });
+  });
+
+  describe("resetFilterLife", () => {
+    it("resets a filter the machine has", async () => {
+      await (await connected()).resetFilterLife("outerFilter");
+
+      expect(mock.broker.published).toMatchObject([
+        { message: { msg: "STATE-SET", data: { rshf: "RSTF" } } },
+      ]);
+    });
+
+    it("rejects, and sends nothing, for a filter the machine does not have", async () => {
+      const purifier = await connected();
+      await expect(purifier.resetFilterLife("filter")).rejects.toThrow(
+        "The machine has no filter: see EnvironmentalCareClient.capabilities",
+      );
+      const fan = await connected({ ...MACHINE, type: "739" });
+      await expect(fan.resetFilterLife("innerFilter")).rejects.toThrow(
+        "The machine has no innerFilter",
+      );
+
+      expect(mock.broker.published).toEqual([]);
+    });
   });
 
   it("reads the sensors with one request", async () => {
@@ -169,7 +229,44 @@ describe("EnvironmentalCareClient", () => {
       await expect(
         purifier.setState({ oscillationPresetAngleInDegrees: 45 }),
       ).rejects.toThrow("The machine takes no oscillationPresetAngleInDegrees");
+      await expect(
+        purifier.setState({ oscillationMode: "idleOn" }),
+      ).rejects.toThrow("The machine takes no oscillationMode");
+      await expect(
+        purifier.setState({ oscillationMode: "scan" }),
+      ).rejects.toThrow("The machine takes no oscillationMode");
+      await expect(
+        purifier.setState({ tiltAngleInDegrees: 25 }),
+      ).rejects.toThrow("The machine takes no tiltAngleInDegrees");
+      await expect(
+        purifier.setState({ findAndFollowMode: "on" }),
+      ).rejects.toThrow("The machine takes no findAndFollowMode");
+      await expect(
+        purifier.setState({ waterHardness: "hard" }),
+      ).rejects.toThrow("The machine takes no waterHardness");
       expect(mock.broker.published).toEqual([]);
+    });
+
+    it("tilts a machine that tilts, in one command", async () => {
+      await (await connected({ ...MACHINE, type: "664" })).setState({
+        tiltAngleInDegrees: 50,
+      });
+
+      expect(mock.broker.published).toMatchObject([
+        {
+          message: {
+            msg: "STATE-SET",
+            data: {
+              fpwr: "ON",
+              fdir: "OFF",
+              oton: "OFF",
+              anct: "CUST",
+              otau: "0050",
+              otal: "0050",
+            },
+          },
+        },
+      ]);
     });
 
     it("writes a preset angle to a machine whose firmware takes no two angles", async () => {
@@ -277,6 +374,26 @@ describe("EnvironmentalCareClient", () => {
       expect(mock.broker.published).toEqual([]);
       expect(onState).toHaveBeenCalledOnce();
     });
+  });
+
+  it("passes the faults the machine sends on to onFaults, and to no other callback", async () => {
+    const onState = vi.fn();
+    const onSensors = vi.fn();
+    const onFaults = vi.fn();
+    const purifier = await connected(MACHINE, { onState, onSensors, onFaults });
+    await purifier.getFaults();
+
+    mock.broker.send({
+      msg: "FAULTS-CHANGE",
+      "product-warnings": { fltr: ["FAIL", "OK"] },
+    });
+
+    expect(onFaults.mock.calls).toMatchObject([
+      [{ productWarnings: ["filterReplacement"] }],
+      [{ productWarnings: [] }],
+    ]);
+    expect(onState).not.toHaveBeenCalled();
+    expect(onSensors).not.toHaveBeenCalled();
   });
 
   it("passes the readings the machine sends on to onSensors", async () => {
