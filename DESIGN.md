@@ -139,10 +139,32 @@ Rejected: treating a type that is not known as a later one.
 - A wrong guess writes `fpwr` to a machine that takes `fmod`, and nothing
   reports that the write did nothing.
 
-An `autoMode` or a `fanSpeed` also switches the machine on: a type of the
-first generation has no way to take one without it, since `fmod` is `FAN` or
-`AUTO` for a machine that is on, and the later types then behave alike. A
-`fanPower` of `false` also sends the sleep timer off, in the same command.
+Every field of a control sends `fpwr` `ON` with it to a later machine, but
+those the MyDyson app writes to a machine that is off without switching it
+on: `continuousMonitoring`, `waterHardness`, `temperatureUnit`,
+`wickDryingMode`, `wickDryingSpeed`, an `oscillationMode` of `off` or
+`idleOff` to an `advanced` or a `barrel` oscillation, and a
+`findAndFollowMode` of `off`. The app switches a machine that is off on
+before it writes any other field, in a command of its own but for a
+`findAndFollowMode`; the client sends `fpwr` `ON` in the same `STATE-SET`
+every time, since it changes nothing on a machine that is on. A `fanPower`
+the control sets is sent as it sets it.
+
+A machine of the first generation is switched on with an `autoMode` or a
+`fanSpeed` alone: `fmod` is `FAN` or `AUTO` for a machine that is on, so it
+has no way to take one without it.
+
+Not built: `fmod` `FAN` with every other field to a machine of the first
+generation, as the app sends it to one that is off.
+
+- `fmod` `FAN` takes a machine that is on out of auto mode, and the client
+  holds no state to tell one that is off by.
+
+A `fanPower` of `false` also sends the sleep timer off, in the same command.
+A `targetTemperatureInC` also sends `hmod` `HEAT`, an `autoHumidification`
+`hume` `HUMD`, and a `manualHumidificationTargetInPercent` `hume` `HUMD` and,
+to a machine that takes an `autoHumidification`, `haut` `OFF`: the app
+writes each of them before the field.
 
 An `oscillationAngles` or an `oscillationPresetAngleInDegrees` also sends
 `oson` `ON`, in the same command.
@@ -204,8 +226,8 @@ Rejected: sending an `oscillationMode` of `scan` as given.
 
 `resetFilterLife` sends one field, `RSTF` in `rstf`, `rscf` or `rshf`.
 
-Not built: `fmod` `OFF` with a reset, for a machine of the first generation
-that is off, as the MyDyson app sends it.
+Not built: `fmod` `OFF` with a reset or an `airQualityTarget`, for a
+machine of the first generation that is off, as the MyDyson app sends it.
 
 - The client reads nothing before a write, so it has no state to tell a
   machine that is off by.

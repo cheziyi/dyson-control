@@ -71,6 +71,13 @@ const NOTHING_REPORTED: EnvironmentalCareState = {
   tiltAngleInDegrees: null,
   findAndFollowMode: null,
   waterHardness: null,
+  childLockMode: null,
+  temperatureUnit: null,
+  nozzleAngle: null,
+  focusDiffuse: null,
+  airQualityTarget: null,
+  wickDryingMode: null,
+  wickDryingSpeed: null,
   oscillationState: null,
   findAndFollowState: null,
   cleanCycleState: null,
@@ -81,6 +88,10 @@ const NOTHING_REPORTED: EnvironmentalCareState = {
   outerFilterLifeInPercent: null,
   innerFilterType: null,
   outerFilterType: null,
+  heatState: null,
+  humidificationState: null,
+  wickDryingState: null,
+  wickDryingTimeRemainingInMinutes: null,
 };
 
 describe("parseEnvironmentalCareState", () => {
@@ -281,6 +292,50 @@ describe("parseEnvironmentalCareState", () => {
     ).toBe(4300);
   });
 
+  it("reads the controls and the readings of later machines", () => {
+    expect(
+      parseEnvironmentalCareState(
+        {
+          fpwr: "ON",
+          ctll: "ON",
+          corf: "OFF",
+          noan: "0045",
+          hsta: "OFF",
+          msta: "HUMD",
+          wdmd: "ON",
+          wdsp: "FAST",
+          wdst: "WDRY",
+          wdtr: "0025",
+        },
+        LATER,
+      ),
+    ).toMatchObject({
+      childLockMode: true,
+      temperatureUnit: "fahrenheit",
+      nozzleAngle: "indirect",
+      heatState: "off",
+      humidificationState: "humidify",
+      wickDryingMode: true,
+      wickDryingSpeed: "fast",
+      wickDryingState: "wickDrying",
+      wickDryingTimeRemainingInMinutes: 25,
+    });
+  });
+
+  it.each([
+    ["0004", "good"],
+    ["0003", "sensitive"],
+    ["0001", "verySensitive"],
+    ["0002", null],
+  ])("reads an air quality target of %s", (qtar, airQualityTarget) => {
+    expect(
+      parseEnvironmentalCareState(
+        { fmod: "AUTO", qtar, ffoc: "OFF" },
+        GENERATION_1,
+      ),
+    ).toMatchObject({ airQualityTarget, focusDiffuse: "diffuse" });
+  });
+
   it("reads the minutes left on the sleep timer", () => {
     expect(
       parseEnvironmentalCareState({ fpwr: "ON", sltm: "0030" }, LATER)
@@ -313,8 +368,8 @@ describe("parseEnvironmentalCareState", () => {
 describe("applyEnvironmentalCareControl", () => {
   it("carries only the fields the control sets", () => {
     expect(apply("438", {})).toEqual({});
-    expect(apply("438", { nightMode: true })).toEqual({
-      nmod: "ON",
+    expect(apply("438", { continuousMonitoring: true })).toEqual({
+      rhtm: "ON",
     });
     expect(apply("438", { fanPower: true })).toEqual({
       fpwr: "ON",
@@ -365,6 +420,7 @@ describe("applyEnvironmentalCareControl", () => {
     ["breeze", "BRZE"],
   ] as const)("encodes an oscillation preset angle of %s", (angle, ancp) => {
     expect(apply("438", { oscillationPresetAngleInDegrees: angle })).toEqual({
+      fpwr: "ON",
       oson: "ON",
       ancp,
     });
@@ -375,13 +431,19 @@ describe("applyEnvironmentalCareControl", () => {
       apply("438", {
         oscillationAngles: { lowerInDegrees: 90, upperInDegrees: 180 },
       }),
-    ).toEqual({ oson: "ON", osal: "0090", osau: "0180", ancp: "CUST" });
+    ).toEqual({
+      fpwr: "ON",
+      oson: "ON",
+      osal: "0090",
+      osau: "0180",
+      ancp: "CUST",
+    });
     expect(
       apply("358", {
         oscillationMode: "idleOn",
         oscillationPresetAngleInDegrees: "breeze",
       }),
-    ).toEqual({ oson: "OION", ancp: "BRZE" });
+    ).toEqual({ fpwr: "ON", oson: "OION", ancp: "BRZE" });
   });
 
   it.each([
@@ -424,6 +486,101 @@ describe("applyEnvironmentalCareControl", () => {
     },
   );
 
+  it.each([
+    ["night mode", { nightMode: false }, { nmod: "OFF" }],
+    ["fan air direction", { fanAirDirection: "backward" }, { fdir: "OFF" }],
+    ["sleep timer", { sleepTimerInMinutes: 30 }, { sltm: "0030" }],
+    ["child lock", { childLockMode: true }, { ctll: "ON" }],
+    ["nozzle angle", { nozzleAngle: "indirect" }, { noan: "0045" }],
+  ] as const)(
+    "switches a later machine on to write its %s",
+    (_name, control, data) => {
+      expect(apply("438", control)).toEqual({ fpwr: "ON", ...data });
+    },
+  );
+
+  it.each([
+    ["continuous monitoring", { continuousMonitoring: false }, { rhtm: "OFF" }],
+    ["temperature unit", { temperatureUnit: "fahrenheit" }, { corf: "OFF" }],
+    ["wick drying mode", { wickDryingMode: true }, { wdmd: "ON" }],
+    ["wick drying speed", { wickDryingSpeed: "normal" }, { wdsp: "NORM" }],
+  ] as const)("writes the %s alone", (_name, control, data) => {
+    expect(apply("965", control)).toEqual(data);
+  });
+
+  it("switches an advanced oscillation off without switching the machine on, and a basic one with it", () => {
+    const type = decodeEnvironmentalCareType("438");
+    if (type === undefined) {
+      throw new Error("438 is no known type");
+    }
+    const advanced = decodeEnvironmentalCareCapabilities(
+      {
+        serialNumber: "S-1",
+        type: "438",
+        firmwareCapabilities: ["AdvanceOscillationDay1"],
+      },
+      type,
+    );
+    for (const oscillationMode of ["off", "idleOff"] as const) {
+      expect(
+        applyEnvironmentalCareControl(type, advanced, { oscillationMode }),
+      ).toEqual({ oson: oscillationMode === "off" ? "OFF" : "OIOF" });
+    }
+    expect(apply("438", { oscillationMode: "off" })).toEqual({
+      fpwr: "ON",
+      oson: "OFF",
+    });
+  });
+
+  it("switches the machine on for a find and follow mode beside one written alone", () => {
+    expect(apply("438", { findAndFollowMode: "off", nightMode: true })).toEqual(
+      { fpwr: "ON", soon: "OFF", nmod: "ON" },
+    );
+  });
+
+  it("heats with a target temperature, unless the control sets the heat mode", () => {
+    expect(apply("527", { targetTemperatureInC: 21 })).toEqual({
+      fpwr: "ON",
+      hmod: "HEAT",
+      hmax: "2942",
+    });
+    expect(apply("527", { heatMode: "off", targetTemperatureInC: 21 })).toEqual(
+      { fpwr: "ON", hmod: "OFF", hmax: "2942" },
+    );
+  });
+
+  it("humidifies with an auto humidification", () => {
+    expect(apply("358", { autoHumidification: true })).toEqual({
+      fpwr: "ON",
+      hume: "HUMD",
+      haut: "ON",
+    });
+  });
+
+  it("humidifies by hand with a target humidity", () => {
+    expect(apply("358", { manualHumidificationTargetInPercent: 50 })).toEqual({
+      fpwr: "ON",
+      hume: "HUMD",
+      haut: "OFF",
+      humt: "0050",
+    });
+    expect(apply("965", { manualHumidificationTargetInPercent: 50 })).toEqual({
+      fpwr: "ON",
+      hume: "HUMD",
+      humt: "0050",
+    });
+  });
+
+  it("writes the controls of the first generation alone", () => {
+    expect(
+      apply("455", {
+        nightMode: true,
+        focusDiffuse: "focus",
+        airQualityTarget: "verySensitive",
+      }),
+    ).toEqual({ nmod: "ON", ffoc: "ON", qtar: "0001" });
+  });
+
   it("encodes each mode", () => {
     expect(
       apply("438", {
@@ -434,6 +591,7 @@ describe("applyEnvironmentalCareControl", () => {
         sleepTimerInMinutes: "off",
       }),
     ).toEqual({
+      fpwr: "ON",
       oson: "ON",
       fdir: "ON",
       hmod: "OFF",
@@ -532,7 +690,7 @@ describe("applyEnvironmentalCareControl", () => {
         apply("475", {
           targetTemperatureInC: 22,
         }),
-      ).toEqual({ hmax: "2950" });
+      ).toEqual({ hmod: "HEAT", hmax: "2950" });
     });
   });
 });

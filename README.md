@@ -150,6 +150,12 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `tiltAnglesInDegrees` | `0`, `25`, `50` and `breeze` for a `tilt` oscillation, or an empty list |
 | `findAndFollowModes` | `off`, `on` and `scan` for a `438` or a `527` of variant `N`, or an empty list |
 | `waterHardnesses` | `soft`, `medium` and `hard` for a humidifier that runs a clean cycle, or an empty list |
+| `childLockMode` | `true` for a `635`, `739`, `918`, `965`, `997` or `1018` |
+| `temperatureUnits` | `celsius` and `fahrenheit` for a later machine but a `739`, `897`, `917`, `949`, `960`, `997`, `1018` or a `438` of variant `M`; or an empty list |
+| `nozzleAngles` | `direct` and `indirect` for an `831`, or an empty list |
+| `focusDiffuses` | `focus` and `diffuse` for a `455`, or an empty list |
+| `airQualityTargets` | `good`, `sensitive` and `verySensitive` for the first generation, or an empty list |
+| `wickDryingMode`, `wickDryingSpeeds` | `true`, and `slow`, `normal` and `fast`, for a `965`; or `false` and an empty list |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
 | `filters` | `filter` for the first generation, `innerFilter` and `outerFilter` for a later machine that reports its filters' life, or an empty list: what [`resetFilterLife()`](#filters-and-faults) takes |
 
@@ -179,6 +185,13 @@ reports none, so a fan without a heater reads `heatMode: null`.
 | `tiltAngleInDegrees` | `0`, `25` or `50`, or `breeze`, which tilts the machine back and forth |
 | `findAndFollowMode` | `off`, `on` to follow the people the machine finds, or `scan` to look for them |
 | `waterHardness` | `soft`, `medium` or `hard`: how often a humidifier asks for a clean cycle |
+| `childLockMode` | `true` while the machine's buttons are locked |
+| `temperatureUnit` | `celsius` or `fahrenheit`: the unit the machine shows a temperature in |
+| `nozzleAngle` | `direct`, at 0 degrees, or `indirect`, at 45 |
+| `focusDiffuse` | `focus` or `diffuse` |
+| `airQualityTarget` | `good`, `sensitive` or `verySensitive`: the index auto mode aims for, 4, 3 or 1 |
+| `wickDryingMode` | Whether a humidifier dries its wick |
+| `wickDryingSpeed` | `slow`, `normal` or `fast`: in 60, 45 or 30 minutes |
 
 The rest of the state are readings, which `setState()` does not take:
 
@@ -192,6 +205,9 @@ The rest of the state are readings, which `setState()` does not take:
 | `innerFilterLifeInPercent`, `outerFilterLifeInPercent` | The life left in a later machine's inner and outer filter |
 | `innerFilterType` | `carbon`, `sco`, `scog`, `scoh`, `car1` or `none` |
 | `outerFilterType` | `hepa`, `hepaPtfe`, `gcom`, `pcom`, `gcok`, `pcok`, `ehep`, `hsco`, `estf`, `esco`, `ecar`, `escc` or `none` |
+| `heatState`, `humidificationState` | What the heater or the humidifier is doing now, in the values of `heatMode` and `humidificationMode` |
+| `wickDryingState` | `idle` or `wickDrying` |
+| `wickDryingTimeRemainingInMinutes` | A number |
 
 A field that holds a named mode, such as `heatMode`, is that mode and not
 `true` or `false`: a machine with a third mode then needs no new field.
@@ -229,7 +245,7 @@ and reads nothing from the machine first:
 
 ```ts
 await client.setState({ autoMode: true, nightMode: true });
-await client.setState({ heatMode: "heat", targetTemperatureInC: 21 });
+await client.setState({ targetTemperatureInC: 21 }); // and heatMode "heat"
 await client.setState({ sleepTimerInMinutes: 30 });
 ```
 
@@ -237,8 +253,11 @@ await client.setState({ sleepTimerInMinutes: 30 });
 | --- | --- |
 | Rejects with an `Error`, and sends nothing, for a field or a value [`client.capabilities`](#capabilities) says the machine does not take | Write the machine's own fields to send it anyway |
 | Resolves once the broker has the command, not once the machine has acted | Call `getState()` to read what the machine did |
-| Switches the machine on with an `autoMode`, a `fanSpeed`, a `tiltAngleInDegrees` or a `findAndFollowMode` other than `off` | Pass `fanPower: false` with it to leave the machine off |
+| Switches a later machine on with every field but `continuousMonitoring`, `waterHardness`, `temperatureUnit`, `wickDryingMode` and `wickDryingSpeed`, an `oscillationMode` of `off` or `idleOff` to an `advanced` or a `barrel` oscillation, and a `findAndFollowMode` of `off` | Pass `fanPower: false` with it to leave the machine off |
+| Switches a machine of the first generation on with an `autoMode` or a `fanSpeed` alone | Pass `fanPower: true` with another field to switch it on |
 | Switches auto mode off with a `fanSpeed` | Pass `autoMode: true` with it to keep auto mode |
+| Sets `heatMode` to `heat` with a `targetTemperatureInC` | Pass `heatMode` with it to send another |
+| Sets `humidificationMode` to `humidify` with an `autoHumidification` or a `manualHumidificationTargetInPercent`, and `autoHumidification` to `false` with the latter | Pass either with it to send another |
 | Stops the sleep timer with a `fanPower` of `false` | Pass `sleepTimerInMinutes` with it to keep one running |
 | Switches the oscillation on with an `oscillationAngles` or an `oscillationPresetAngleInDegrees` | Pass `oscillationMode` with it to send another, such as `idleOn` while `oscillationState` is `idle` |
 | Sets `fanAirDirection` with a `tiltAngleInDegrees`: `backward` for `50`, and `forward` for every other | Read the direction back from `getState()` |

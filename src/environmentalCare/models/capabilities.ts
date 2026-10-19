@@ -2,15 +2,20 @@
 // machine's type, variant and firmware capabilities.
 
 import type {
+  AirQualityTarget,
   FanAirDirection,
   FindAndFollowMode,
+  FocusDiffuse,
   HeatMode,
   HumidificationMode,
+  NozzleAngle,
   OscillationAngles,
   OscillationMode,
   OscillationPresetAngle,
+  TemperatureUnit,
   TiltAngle,
   WaterHardness,
+  WickDryingSpeed,
 } from "./state.js";
 
 /** How a machine oscillates, by Dyson's name for each: `basic` on and off,
@@ -60,6 +65,13 @@ export interface EnvironmentalCareCapabilities {
   findAndFollowModes: FindAndFollowMode[];
   /** Taken by a machine that runs a clean cycle. */
   waterHardnesses: WaterHardness[];
+  childLockMode: boolean;
+  temperatureUnits: TemperatureUnit[];
+  nozzleAngles: NozzleAngle[];
+  focusDiffuses: FocusDiffuse[];
+  airQualityTargets: AirQualityTarget[];
+  wickDryingMode: boolean;
+  wickDryingSpeeds: WickDryingSpeed[];
   /** Whether the machine measures the air, and so reports the pollutant
    * readings of `EnvironmentalCareSensors`. */
   hasAirQualitySensor: boolean;
