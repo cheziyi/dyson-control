@@ -39,8 +39,9 @@ import {
   type EnvironmentalCareType,
 } from "./protocol/type.js";
 
-/** Takes an `account`, to reach the machine through the cloud, a `host`,
- * to reach it on the LAN, or both, to try the LAN first: see
+/** Reaches the machine on the LAN, by searching for it or at `host`, and
+ * through the cloud when that fails, given an `account`; or through the
+ * cloud alone, given an `account` and `local: false`: see
  * `MachineLinkBrokerOptions`. */
 export type EnvironmentalCareClientOptions = MachineLinkBrokerOptions & {
   /** How long, in milliseconds, a call waits for each of the cloud, the
@@ -101,7 +102,8 @@ export class EnvironmentalCareClient {
   /** It sends nothing. It throws an `Error` for a machine of another
    * category, for one whose `type` is no known environmental care
    * machine's: the type says how the machine holds its state, and for a
-   * `host` and a machine without an `apPasswordHash`. */
+   * machine without an `apPasswordHash`, but one given an `account` and no
+   * `host`. */
   constructor(
     machine: DysonMachine,
     private readonly options: EnvironmentalCareClientOptions,
@@ -131,8 +133,7 @@ export class EnvironmentalCareClient {
 
   /** The broker the open connection goes through, or `null` while none is
    * open. Read it once `connect` resolves and in `onReconnect`: a client
-   * given a `host` and an `account` can open each connection through
-   * either. */
+   * given an `account` can open each connection through either. */
   get hostType(): HostType | null {
     return this.link.hostType;
   }

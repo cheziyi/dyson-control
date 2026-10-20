@@ -7,23 +7,24 @@ machine's own first:
 
 | Options | Broker | To connect |
 | --- | --- | --- |
-| `account` | The cloud's | Posts the machine's serial number to `/v2/authorize/iot-credentials`, and opens MQTT over TLS to the broker the reply names, on port 443 with the ALPN protocol `mqtt` |
+| No `host`, for a machine with an `apPasswordHash` | The machine's own, on the LAN | Asks over mDNS for the PTR records of `_dyson_mqtt._tcp.local`, once a second for up to 3 seconds, until a response holds the instance whose name ends in `_` and the serial number, its SRV record and the A record of the SRV's target. Then opens MQTT as for a `host`, to that address and the SRV's port |
 | `host` | The machine's own, on the LAN | Opens MQTT without TLS to port 1883 of `host`, with a client id of its own, the serial number as the username and the `apPasswordHash` as the password |
+| `account` | The cloud's, after the machine's own, or alone with `local: false` | Posts the machine's serial number to `/v2/authorize/iot-credentials`, and opens MQTT over TLS to the broker the reply names, on port 443 with the ALPN protocol `mqtt` |
 
-Either way it subscribes to the topics its client names, an environmental
-care machine's `status/current` and `status/faults`, and sends every
-command to the machine's `command` topic, with a `mode-reason` of `RAPP`
-through the cloud and `LAPP` on the LAN.
+Whichever broker opens, the link subscribes to the topics its client
+names, an environmental care machine's `status/current` and
+`status/faults`, and sends every command to the machine's `command` topic,
+with a `mode-reason` of `RAPP` through the cloud and `LAPP` on the LAN.
 
 `getMachines` reads `apPasswordHash` from the manifest's
 `localBrokerCredentials`, which the MyDyson app decrypts with one key and IV
 for every machine.
 
-Given both, each connection, a reconnect included, tries the machine's own
-broker and opens the cloud's when that fails in any way: refused, a `host`
-that does not resolve, no CONNACK in time, or the `apPasswordHash`
-rejected. `withRetry` repeats the pair. The connection that opens sets the
-`mode-reason` of each command sent on it.
+Given an `account`, each connection, a reconnect included, tries the
+machine's own broker and opens the cloud's when that fails in any way: no
+answer to the search, refused, a `host` that does not resolve, no CONNACK in
+time, or the `apPasswordHash` rejected. `withRetry` repeats the pair. The
+connection that opens sets the `mode-reason` of each command sent on it.
 
 - A caller can fall back at `connect` with two clients, but not when a
   connection closes later: the link reconnects by itself, so only it can
@@ -36,14 +37,34 @@ Not built: the cloud first, with the machine's own broker as the fallback.
 
 - The cloud's broker opens whenever the internet is up, so the machine's
   own would be tried only while it is down, and its quicker answers would
-  go unused.
+  go unused. A client off the machine's LAN pays for it: 3 seconds of
+  search on each connection before the cloud's, unless it is given
+  `local: false`.
 
-Not built: finding the host on the network.
+Each connection searches the LAN again, so a client follows a machine to a
+new address.
 
-- The package searches the network for nothing: the caller passes `host`.
-  A machine names itself `<serialNumber>.local`, which the operating system
-  resolves where it resolves mDNS names, so the README gives that name and
-  the package needs no mDNS library.
+Rejected: `<serialNumber>.local` as the host, resolved by the operating
+system.
+
+- A `897` names its host so, and no other type is known to. Every machine
+  advertises its broker as a `_dyson_mqtt._tcp` service named for its
+  serial number.
+- Linux resolves a `.local` name only with Avahi and `nss-mdns`, and macOS
+  gives up on one after 5 seconds.
+
+Rejected: one query for each search.
+
+- A `897` answered 17 of 20 first queries within 600 ms, two more only
+  after a second or third query, and one none in 5 seconds.
+
+`multicast-dns` sends the query and decodes the responses.
+
+Rejected: DNS packets written by hand over `dgram`.
+
+- A response names its records with compression pointers, which a decoder
+  follows across the packet: about 100 lines that `dns-packet`, beneath
+  `multicast-dns`, already tests.
 
 A link logs in to the machine's broker with a client id of its own, 16
 random hex digits, kept across its reconnects. The broker refuses a client
@@ -482,7 +503,7 @@ line Node still maintains, and the oldest the tests run on.
 Not built: Node 18 or 20.
 
 - The package itself would run there: it needs `fetch` and
-  `AbortSignal.timeout`, and its one dependency, the MQTT library, takes
-  Node 18. But both lines are past their end of life, and the test runner
+  `AbortSignal.timeout`, and its dependencies, the MQTT and mDNS
+  libraries, take Node 18. But both lines are past their end of life, and the test runner
   needs Node 22.12, so nothing would check that a release still works on
   them.
