@@ -46,13 +46,16 @@ describe("the user status", () => {
     });
   });
 
-  it("passes an active account that logs in with a code", () => {
-    expect(() =>
-      parseUserStatusReply(
-        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PASSWORD_2FA"}',
-      ),
-    ).not.toThrow();
-  });
+  it.each(["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"])(
+    "passes an active account whose authenticationMethod is %s",
+    (authenticationMethod) => {
+      expect(() =>
+        parseUserStatusReply(
+          JSON.stringify({ accountStatus: "ACTIVE", authenticationMethod }),
+        ),
+      ).not.toThrow();
+    },
+  );
 
   it.each(["UNREGISTERED", "NEEDS_ACTIVATION"])(
     "throws status 401 for an accountStatus of %s",

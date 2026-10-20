@@ -53,7 +53,9 @@ export function parseUserStatusReply(text: string): void {
     );
   }
   if (
-    authenticationMethod !== CLOUD_LOGIN_CODE_USER_STATUS.authenticationMethod
+    !(
+      CLOUD_LOGIN_CODE_USER_STATUS.authenticationMethods as readonly string[]
+    ).includes(authenticationMethod)
   ) {
     throw new DysonError(
       `The Dyson cloud emails no login code for an authenticationMethod of ${authenticationMethod}`,
