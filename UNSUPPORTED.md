@@ -14,12 +14,6 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | How an account whose `authenticationMethod` is `EMAIL_PASSWORD` logs in without a login code | `requestLoginCode` rejects with status 401 for it |
 | How long the broker accepts a set of credentials | A `MachineLink` asks for new ones for every connection: [DESIGN.md](DESIGN.md#credentials-for-one-connection) |
 
-## The LAN
-
-| Not known | So |
-| --- | --- |
-| Whether every machine names itself `<serialNumber>.local` over mDNS | A caller passes `host`, and the package resolves no name for it |
-
 ## Messages
 
 | Not known | So |

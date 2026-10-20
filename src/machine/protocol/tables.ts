@@ -19,3 +19,7 @@ export const MACHINE_MODE_REASONS: Readonly<Record<HostType, string>> = {
 
 /** The port of the machine's own broker, which takes MQTT without TLS. */
 export const MACHINE_BROKER_PORT = 1883;
+
+/** The mDNS service a machine advertises its own broker as, under an
+ * instance name that ends in `_` and its serial number. */
+export const MACHINE_SERVICE_TYPE = "_dyson_mqtt._tcp.local";

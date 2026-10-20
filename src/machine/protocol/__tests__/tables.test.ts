@@ -7,6 +7,7 @@ describe("the machine tables", () => {
       MACHINE_TOPICS: { command: "command", status: "status/current" },
       MACHINE_MODE_REASONS: { remote: "RAPP", local: "LAPP" },
       MACHINE_BROKER_PORT: 1883,
+      MACHINE_SERVICE_TYPE: "_dyson_mqtt._tcp.local",
     });
   });
 });

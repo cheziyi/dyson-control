@@ -10,6 +10,7 @@ import {
   withRetry,
 } from "../cloud/transport.js";
 import { DysonConnectionError, DysonError } from "../error.js";
+import { findMachineBroker } from "./broker.js";
 import type { HostType } from "./models/hostType.js";
 import { buildMachineBroker } from "./protocol/broker.js";
 import {
@@ -18,32 +19,36 @@ import {
   type MachineMessage,
   parseMachineMessage,
 } from "./protocol/message.js";
-import { MACHINE_TOPICS } from "./protocol/tables.js";
+import { MACHINE_BROKER_PORT, MACHINE_TOPICS } from "./protocol/tables.js";
 
-/** Which broker reaches the machine: the cloud's, with `account`, the
- * machine's own on the LAN, at `host`, or the machine's own first and the
- * cloud's when it fails to open, with both. */
+/** Which broker reaches the machine: its own on the LAN, at `host` or
+ * found by searching the LAN, and the cloud's after it with `account`; or
+ * the cloud's alone, with `local: false`. */
 export type MachineLinkBrokerOptions =
   | {
       /** The account the machine is registered to, as `login` resolved
        * with it. A connection goes through the cloud's broker, with
-       * credentials the cloud hands out for it; with a `host` as well, only
-       * when the machine's own broker fails to open one. */
-      account: DysonAccount;
-      /** The machine's host name or IPv4 address on the LAN, such as
-       * `<serialNumber>.local`. Each connection tries the machine's own
-       * broker there first, so a host that answers nothing or does not
-       * resolve costs up to `timeoutInMs` before the cloud's. The machine needs the
-       * `apPasswordHash` that `getMachines` reads. */
+       * credentials the cloud hands out for it, when the machine's own
+       * broker fails to open one. Without it nothing is asked of the
+       * cloud. */
+      account?: DysonAccount;
+      /** The machine's host name or IPv4 address on the LAN, in place of
+       * searching the LAN for it. A host that answers nothing or does not
+       * resolve costs up to `timeoutInMs`. */
       host?: string;
+      /** Whether a connection tries the machine's own broker on the LAN.
+       * Defaults to true. */
+      local?: true;
     }
   | {
-      /** The machine's host name or IPv4 address on the LAN, such as
-       * `<serialNumber>.local`. Each connection goes to the machine's own
-       * broker there, and nothing is asked of the cloud. The machine needs
-       * the `apPasswordHash` that `getMachines` reads. */
-      host: string;
-      account?: undefined;
+      /** The account the machine is registered to, as `login` resolved
+       * with it. Each connection goes through the cloud's broker, with
+       * credentials the cloud hands out for it. */
+      account: DysonAccount;
+      host?: undefined;
+      /** False to go through the cloud's broker alone, and not search the
+       * LAN first, which costs 3 seconds for a machine not on it. */
+      local: false;
     };
 
 interface BrokerRoute {
@@ -123,8 +128,9 @@ export class MachineLink {
   private disconnects = 0;
   private readonly waiters = new Set<Waiter>();
 
-  /** It sends nothing. It throws an `Error` for a `host` and a machine
-   * without an `apPasswordHash`. */
+  /** It sends nothing. It throws an `Error` for a machine without an
+   * `apPasswordHash`, but one given an `account` and no `host`, which it
+   * reaches through the cloud alone, as it does one given `local: false`. */
   constructor(
     private readonly machine: DysonMachine,
     options: MachineLinkOptions,
@@ -135,23 +141,30 @@ export class MachineLink {
     this.onMessage = options.onMessage;
     this.onReconnect = options.onReconnect;
     this.onDisconnect = options.onDisconnect;
-    if (options.host !== undefined) {
-      const { apPasswordHash } = machine;
-      if (apPasswordHash === undefined) {
+    const { apPasswordHash } = machine;
+    if (options.local !== false) {
+      if (apPasswordHash !== undefined) {
+        // Its own client id, so the broker closes no other program's
+        // connection to the machine when this one opens. The broker refuses
+        // one longer than 23 characters.
+        const clientId = randomBytes(8).toString("hex");
+        const { host } = options;
+        const getBroker =
+          host === undefined
+            ? () => findMachineBroker(machine, apPasswordHash, clientId)
+            : async () =>
+                buildMachineBroker(
+                  machine,
+                  { host, port: MACHINE_BROKER_PORT },
+                  apPasswordHash,
+                  clientId,
+                );
+        this.routes.push({ hostType: "local", getBroker });
+      } else if (options.host !== undefined || options.account === undefined) {
         throw new Error(
-          "A machine reached at a host needs the apPasswordHash that getMachines reads",
+          "A machine reached on the LAN needs the apPasswordHash that getMachines reads",
         );
       }
-      // Its own client id, so the broker closes no other program's
-      // connection to the machine when this one opens. The broker refuses
-      // one longer than 23 characters.
-      const broker = buildMachineBroker(
-        machine,
-        options.host,
-        apPasswordHash,
-        randomBytes(8).toString("hex"),
-      );
-      this.routes.push({ hostType: "local", getBroker: async () => broker });
     }
     if (options.account !== undefined) {
       const transport = new DysonCloudTransport({

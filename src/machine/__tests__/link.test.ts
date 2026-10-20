@@ -8,9 +8,11 @@ import {
 } from "../../cloud/__tests__/mocks/broker.js";
 import { ACCOUNT } from "../../cloud/__tests__/mocks/cloud.js";
 import { DysonConnectionError, DysonError } from "../../error.js";
+import { findMachineBroker } from "../broker.js";
 import { MachineLink, type MachineLinkOptions } from "../link.js";
 
 vi.mock("mqtt", () => ({ connectAsync: vi.fn() }));
+vi.mock("../broker.js", () => ({ findMachineBroker: vi.fn() }));
 
 const mock = useMockBroker();
 
@@ -30,6 +32,10 @@ async function connected(
   const machineLink = link(options);
   await machineLink.connect();
   return machineLink;
+}
+
+function urls(): string[] {
+  return vi.mocked(connectAsync).mock.calls.map(([url]) => String(url));
 }
 
 describe("MachineLink", () => {
@@ -124,7 +130,7 @@ describe("MachineLink", () => {
         () => new MachineLink(MACHINE, { host: "S-1.local", topics: [] }),
       ).toThrow(
         new Error(
-          "A machine reached at a host needs the apPasswordHash that getMachines reads",
+          "A machine reached on the LAN needs the apPasswordHash that getMachines reads",
         ),
       );
     });
@@ -157,10 +163,6 @@ describe("MachineLink", () => {
         return (connect as (...args: unknown[]) => unknown)(url, ...rest);
       }) as typeof connectAsync);
       return lan;
-    }
-
-    function urls(): string[] {
-      return vi.mocked(connectAsync).mock.calls.map(([url]) => String(url));
     }
 
     it("connects to the machine's own broker, and asks the cloud nothing", async () => {
@@ -216,6 +218,110 @@ describe("MachineLink", () => {
       await expect(fallingBack().connect()).rejects.toMatchObject({
         httpStatusCode: 401,
       });
+    });
+  });
+
+  describe("found on the LAN", () => {
+    const machine = { ...MACHINE, apPasswordHash: "hash-1" };
+
+    // The machine answers each search from `lan.address`, or none while it
+    // is `undefined`.
+    function answerSearch(address?: string): { address?: string } {
+      const lan = { address };
+      vi.mocked(findMachineBroker)
+        .mockReset()
+        .mockImplementation(async (_machine, password, clientId) => {
+          if (lan.address === undefined) {
+            throw new DysonError("The machine answered no search", 504);
+          }
+          return {
+            url: `mqtt://${lan.address}:1883`,
+            clientId,
+            username: "S-1",
+            password,
+          };
+        });
+      return lan;
+    }
+
+    it("searches the LAN for the machine's own broker, and asks the cloud nothing", async () => {
+      answerSearch("192.168.1.22");
+      const machineLink = new MachineLink(machine, { topics: [] });
+
+      await machineLink.connect();
+
+      expect(findMachineBroker).toHaveBeenCalledExactlyOnceWith(
+        machine,
+        "hash-1",
+        expect.stringMatching(/^[0-9a-f]{16}$/),
+      );
+      expect(urls()).toEqual(["mqtt://192.168.1.22:1883"]);
+      expect(mock.credentialRequests).toHaveLength(0);
+      expect(machineLink.hostType).toBe("local");
+    });
+
+    it("searches again when the connection closes, and connects to the address the machine answers then", async () => {
+      const lan = answerSearch("192.168.1.22");
+      const machineLink = new MachineLink(machine, { topics: [] });
+      await machineLink.connect();
+
+      lan.address = "192.168.1.23";
+      mock.broker.drop();
+      await vi.waitFor(() => expect(machineLink.hostType).toBe("local"));
+
+      expect(urls()).toEqual([
+        "mqtt://192.168.1.22:1883",
+        "mqtt://192.168.1.23:1883",
+      ]);
+    });
+
+    it("connects through the cloud when the machine answers no search, given an account", async () => {
+      answerSearch();
+      const machineLink = new MachineLink(machine, {
+        account: ACCOUNT,
+        topics: [],
+      });
+
+      await machineLink.connect();
+
+      expect(findMachineBroker).toHaveBeenCalledOnce();
+      expect(urls()).toEqual(["mqtts://broker.example.com:443"]);
+      expect(machineLink.hostType).toBe("remote");
+    });
+
+    it("searches for no machine without an apPasswordHash, and connects through the cloud alone", async () => {
+      answerSearch("192.168.1.22");
+
+      await new MachineLink(MACHINE, {
+        account: ACCOUNT,
+        topics: [],
+      }).connect();
+
+      expect(findMachineBroker).not.toHaveBeenCalled();
+      expect(urls()).toEqual(["mqtts://broker.example.com:443"]);
+    });
+
+    it("searches for no machine given local: false, and connects through the cloud alone", async () => {
+      answerSearch("192.168.1.22");
+      const machineLink = new MachineLink(machine, {
+        account: ACCOUNT,
+        local: false,
+        topics: [],
+      });
+
+      await machineLink.connect();
+
+      expect(findMachineBroker).not.toHaveBeenCalled();
+      expect(urls()).toEqual(["mqtts://broker.example.com:443"]);
+      expect(machineLink.hostType).toBe("remote");
+    });
+
+    it("throws an Error for a machine without an apPasswordHash, given no account", () => {
+      expect(() => new MachineLink(MACHINE, { topics: [] })).toThrow(
+        new Error(
+          "A machine reached on the LAN needs the apPasswordHash that getMachines reads",
+        ),
+      );
     });
   });
 

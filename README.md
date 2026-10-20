@@ -132,20 +132,27 @@ A machine from `getMachines` also carries `remoteBrokerType`, and
 
 ### LAN connection
 
-Pass `host` to reach the machine through its own broker on your network:
+Pass `account` alone: a client finds the machine on your network and goes
+through its own broker, and through the cloud's only when the machine does
+not answer there.
 
 ```ts
-const client = new EnvironmentalCareClient(machine, {
-  host: `${machine.serialNumber}.local`,
-  account, // optional: through the cloud when the LAN fails
-});
+const client = new EnvironmentalCareClient(machine, { account });
+await client.connect();
+client.hostType; // "local" when the machine answered on the LAN
 ```
 
 | Pass | Each connection goes through |
 | --- | --- |
-| `account` | The cloud's broker |
-| `host` | The machine's own broker, and nothing is asked of the cloud |
-| `host` and `account` | The machine's own broker, and the cloud's when the machine's fails to open, refused, unresolved, timed out or rejecting the `apPasswordHash`. A reconnect tries the machine's own first again |
+| `account` | The machine's own broker, found by searching the LAN, and the cloud's when the search finds nothing in 3 seconds or the machine's broker fails to open. A machine without an `apPasswordHash` goes through the cloud's alone |
+| Neither | The machine's own broker, found by searching the LAN, and nothing is asked of the cloud |
+| `host` | The machine's own broker at `host`, and nothing is asked of the cloud |
+| `host` and `account` | The machine's own broker at `host`, and the cloud's when it fails to open, refused, unresolved, timed out or rejecting the `apPasswordHash` |
+| `account` and `local: false` | The cloud's broker alone. Pass it where the machine is never on the client's LAN, such as on a server in the cloud: the search costs 3 seconds on each connection |
+
+Each connection, a reconnect included, searches the LAN again, so a client
+follows a machine its router gives a new IP address, and returns to the LAN
+from the cloud once the machine answers there.
 
 `client.hostType` says which broker the open connection goes through:
 `local`, `remote`, or `null` while none is open. Read it once `connect()`
@@ -153,9 +160,10 @@ resolves and in `onReconnect`.
 
 | Part | Meaning |
 | --- | --- |
-| `host` | The machine's host name or IPv4 address. A machine names itself `<serialNumber>.local` over mDNS, which macOS and Windows resolve, and Linux does with Avahi and `nss-mdns`. Pass its IP address where that name does not resolve, such as in a Docker container on the default bridge network |
-| `machine.apPasswordHash` | The password of the machine's broker. `getMachines` reads it from the cloud: store it with the machine. The constructor throws an `Error` for a machine without one |
-| The connection | Port 1883, without TLS. A host that answers nothing, or a `.local` name that does not resolve, costs up to `timeoutInMs` before a client with an `account` tries the cloud: macOS gives up on a `.local` name after 5 seconds |
+| The search | An mDNS query for the machine's `_dyson_mqtt._tcp` service, asked once a second for up to 3 seconds. Multicast does not reach a Docker container on the default bridge network: run it with `--network host`, or pass `host` |
+| `host` | The machine's host name or IPv4 address, in place of the search. A client given an IP address does not follow the machine to another: reserve the address on your router |
+| `machine.apPasswordHash` | The password of the machine's broker. `getMachines` reads it from the cloud: store it with the machine. The constructor throws an `Error` for a machine without one, but given an `account` and no `host` |
+| The connection | MQTT without TLS, on the port the machine answers the search with, or port 1883 of `host`. A `host` that answers nothing costs up to `timeoutInMs` before a client with an `account` tries the cloud |
 
 [DESIGN.md](DESIGN.md#connectivity) says why the LAN comes first.
 
@@ -371,8 +379,8 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 | 401 | The cloud emails no login code for the address, rejected the login or the account's token, or the broker rejected the credentials the cloud issued, the machine's `apPasswordHash` or the subscription to the machine's topic |
 | 501 | The machine is on the RabbitMQ broker, which no client connects to through the cloud: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
 | 502 | The cloud answered with a reply that does not parse, or the machine with a message that lacks its fields |
-| 503 | The cloud or the broker refused or dropped the connection, or the `host` does not resolve (a `DysonConnectionError`); or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |
-| 504 | The cloud, the broker or the machine did not answer in time. A machine that is unplugged or off its Wi-Fi answers nothing |
+| 503 | The cloud or the broker refused or dropped the connection, or the `host` does not resolve (a `DysonConnectionError`); the socket that searches the LAN failed; or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |
+| 504 | The cloud, the broker or the machine did not answer in time, or the machine answered no search on the LAN. A machine that is unplugged or off its Wi-Fi answers nothing |
 | 429 | The cloud was asked for a login code again within seconds of the last one: wait before asking again |
 | Any other | The cloud's own HTTP status |
 
@@ -400,8 +408,6 @@ place of `dyson-control`. The cloud refuses an empty one with HTTP 403.
   controls a machine of the `environmentalCare` category whose type is in
   the table under [Machines](#machines). `getMachines()` lists a robot
   vacuum or a light as well, and nothing controls one yet.
-- **No discovery on the LAN**: a client given a `host` connects there, and
-  the package searches the network for no machine.
 - **Email login only**: an account that logs in with a mobile number is not
   covered.
 - **Machines on the RabbitMQ broker** are listed by `getMachines()` with

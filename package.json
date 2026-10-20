@@ -47,6 +47,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@tsconfig/node22": "^22.0.6",
+    "@types/multicast-dns": "^7.2.4",
     "@types/node": "^22.20.5",
     "@vitest/coverage-v8": "5.0.3",
     "lefthook": "^2.2.1",
@@ -58,6 +59,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "mqtt": "^5.16.0"
+    "mqtt": "^5.16.0",
+    "multicast-dns": "^7.2.5"
   }
 }
