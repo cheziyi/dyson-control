@@ -11,9 +11,11 @@ export const CLOUD_ORIGINS = {
 
 export const CLOUD_CHINA_COUNTRY = "CN";
 
+/** The cloud has spelled the `authenticationMethod` of an account that logs
+ * in with a code both ways. */
 export const CLOUD_LOGIN_CODE_USER_STATUS = {
   accountStatus: "ACTIVE",
-  authenticationMethod: "EMAIL_PASSWORD_2FA",
+  authenticationMethods: ["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"],
 } as const;
 
 export const CLOUD_ROUTES = {

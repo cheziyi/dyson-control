@@ -421,7 +421,8 @@ and `withRetry`.
 `requestLoginCode` posts the address to `/v3/userregistration/email/userstatus`
 before it posts it to `/v3/userregistration/email/auth`, and asks for no code
 unless the cloud answers an `accountStatus` of `ACTIVE` and an
-`authenticationMethod` of `EMAIL_PASSWORD_2FA`.
+`authenticationMethod` of `EMAIL_PASSWORD_2FA` or `EMAIL_PWD_2FA`. The cloud
+has answered each for the same account, and sends a code for either.
 
 Rejected: posting the address to `/v3/userregistration/email/auth` alone.
 
@@ -440,8 +441,9 @@ Rejected: asking for the user status and ignoring what it answers.
 Rejected: asking for a code for every `ACTIVE` account.
 
 - The MyDyson app asks for a code only for an `authenticationMethod` of
-  `EMAIL_PASSWORD_2FA`. An account whose `authenticationMethod` is
-  `EMAIL_PASSWORD` logs in without one, and the app asks for none for it.
+  `EMAIL_PASSWORD_2FA`; release 6.4.26381 knows no `EMAIL_PWD_2FA`. An
+  account whose `authenticationMethod` is `EMAIL_PASSWORD` logs in without
+  one, and the app asks for none for it.
 
 ## Headers
 

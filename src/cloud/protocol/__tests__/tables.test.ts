@@ -11,7 +11,7 @@ describe("the cloud tables", () => {
       CLOUD_CHINA_COUNTRY: "CN",
       CLOUD_LOGIN_CODE_USER_STATUS: {
         accountStatus: "ACTIVE",
-        authenticationMethod: "EMAIL_PASSWORD_2FA",
+        authenticationMethods: ["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"],
       },
       CLOUD_ROUTES: {
         userStatus: "/v3/userregistration/email/userstatus",
