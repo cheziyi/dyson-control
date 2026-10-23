@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { parseMachines } from "../machines.js";
+import { buildManifestQuery, parseMachines } from "../machines.js";
+
+describe("buildManifestQuery", () => {
+  it("sends the country as the market and the culture as the locale", () => {
+    expect(buildManifestQuery({ country: "GB", culture: "en-GB" })).toEqual({
+      market: "GB",
+      locale: "en-GB",
+    });
+  });
+});
 
 const PURIFIER = {
   serialNumber: "A1B-EU-ABC1234D",

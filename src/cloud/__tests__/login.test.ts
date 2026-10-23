@@ -60,7 +60,20 @@ describe("requestLoginCode", () => {
     }
   });
 
-  it("rejects with status 401, and asks for no code, for an address the cloud emails no code for", async () => {
+  it("resolves with null, and asks for no code, for an account that logs in with its password alone", async () => {
+    cloud.reply = replyAs({
+      accountStatus: "ACTIVE",
+      authenticationMethod: "EMAIL_PASSWORD",
+    });
+
+    await expect(
+      requestLoginCode({ email: "me@example.com" }),
+    ).resolves.toBeNull();
+
+    expect(cloud.requests).toHaveLength(1);
+  });
+
+  it("rejects with status 401, and asks for no code, for an address the cloud logs no account in for", async () => {
     cloud.reply = replyAs({
       accountStatus: "UNREGISTERED",
       authenticationMethod: "EMAIL_PASSWORD_2FA",
@@ -68,7 +81,7 @@ describe("requestLoginCode", () => {
 
     await expect(requestLoginCode({ email: "me@example.com" })).rejects.toEqual(
       new DysonError(
-        "The Dyson cloud emails no login code for an accountStatus of UNREGISTERED",
+        "The Dyson cloud logs in no account with an accountStatus of UNREGISTERED",
         401,
       ),
     );
@@ -168,6 +181,29 @@ describe("login", () => {
         },
       },
     ]);
+  });
+
+  it("posts the password alone, to the route that takes no code, for an account without one", async () => {
+    cloud.reply = () =>
+      json({ account: "a-1", token: "abc", tokenType: "Bearer" });
+
+    await expect(
+      login({
+        email: "me@example.com",
+        password: "secret",
+        country: "GB",
+        culture: "en-GB",
+      }),
+    ).resolves.toEqual(ACCOUNT);
+
+    expect(cloud.requests).toMatchObject([
+      {
+        method: "POST",
+        url: "https://appapi.cp.dyson.com/v3/userregistration/authenticate?country=GB",
+        body: { email: "me@example.com", password: "secret" },
+      },
+    ]);
+    expect(cloud.requests[0]?.body).not.toHaveProperty("challengeId");
   });
 
   it("sends the country US, and resolves with it and the culture en-US, when it is given neither", async () => {

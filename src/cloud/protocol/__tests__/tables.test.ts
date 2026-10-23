@@ -9,17 +9,25 @@ describe("the cloud tables", () => {
         china: "https://appapi.cp.dyson.cn",
       },
       CLOUD_CHINA_COUNTRY: "CN",
-      CLOUD_LOGIN_CODE_USER_STATUS: {
-        accountStatus: "ACTIVE",
-        authenticationMethods: ["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"],
+      CLOUD_ACTIVE_ACCOUNT_STATUS: "ACTIVE",
+      CLOUD_AUTHENTICATION_METHODS: {
+        loginCode: ["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"],
+        password: ["EMAIL_PASSWORD"],
       },
       CLOUD_ROUTES: {
         userStatus: "/v3/userregistration/email/userstatus",
         loginCode: "/v3/userregistration/email/auth",
-        login: "/v3/userregistration/email/verify",
+        loginWithCode: "/v3/userregistration/email/verify",
+        loginWithPassword: "/v3/userregistration/authenticate",
         manifest: "/v3/manifest",
         iotCredentials: "/v2/authorize/iot-credentials",
         supportedMarket: "/v1/supportedmarket",
+      },
+      CLOUD_QUERY_PARAMETERS: {
+        country: "country",
+        culture: "culture",
+        market: "market",
+        locale: "locale",
       },
       CLOUD_MACHINE_CATEGORY_CODES: {
         environmentalCare: "ec",

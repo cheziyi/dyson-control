@@ -129,6 +129,12 @@ export const OUTER_FILTER_TYPES = [
 
 export type OuterFilterType = (typeof OUTER_FILTER_TYPES)[number];
 
+export const SECURED_FILTER_TYPES = ["sco", "none"] as const;
+
+/** The type of a machine's secured filter, beside its inner and its outer
+ * one. */
+export type SecuredFilterType = (typeof SECURED_FILTER_TYPES)[number];
+
 export const FAN_AIR_DIRECTIONS = ["forward", "backward"] as const;
 
 /** Where the machine blows its air out. */
@@ -220,6 +226,7 @@ export interface EnvironmentalCareState {
   outerFilterLifeInPercent: number | null;
   innerFilterType: InnerFilterType | null;
   outerFilterType: OuterFilterType | null;
+  securedFilterType: SecuredFilterType | null;
   /** What the machine's heater is doing now, beside the `heatMode` it is
    * set to. */
   heatState: HeatMode | null;
@@ -243,6 +250,7 @@ export type EnvironmentalCareReading =
   | "outerFilterLifeInPercent"
   | "innerFilterType"
   | "outerFilterType"
+  | "securedFilterType"
   | "heatState"
   | "humidificationState"
   | "wickDryingState"
@@ -262,11 +270,17 @@ export type EnvironmentalCareControl = {
 /** A reading is `null` when the machine does not report it.
  *
  * An index is the machine's own measure of how clean the air is, the same
- * for every pollutant: under 4 is good, under 7 fair, under 9 poor, under 11
- * very poor, under 13 extremely poor, and severe from there to 15. */
+ * for every pollutant of a later machine: under 4 is good, under 7 fair,
+ * under 9 poor, under 11 very poor, under 13 extremely poor, and severe from
+ * there to 15. A machine of the first generation reports a `dustIndex` and
+ * a `volatileOrganicCompoundsIndex` alone, each a whole number from 0 to 9:
+ * see UNSUPPORTED.md. */
 export interface EnvironmentalCareSensors {
   temperatureInC: number | null;
   humidityInPercent: number | null;
+  /** The dust a machine of the first generation reports, in place of
+   * `pm25Index` and `pm10Index`. */
+  dustIndex: number | null;
   pm25InUgPerM3: number | null;
   pm25Index: number | null;
   pm10InUgPerM3: number | null;

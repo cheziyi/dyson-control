@@ -1,11 +1,18 @@
 import { DysonError } from "../../error.js";
+import type { DysonBroker } from "../connection.js";
 import { parseCloudReply } from "./account.js";
-import { CLOUD_AUTHORIZER_PARAMETERS } from "./tables.js";
+import {
+  CLOUD_AUTHORIZER_PARAMETERS,
+  CLOUD_BROKER_ALPN_PROTOCOL,
+  CLOUD_BROKER_PORT,
+} from "./tables.js";
 
 /** What the cloud hands out to reach one machine through its broker. */
 export interface IotCredentials {
   /** The broker's host name. */
   endpoint: string;
+  /** Empty at times: the broker then takes a client id of the client's
+   * own. */
   clientId: string;
   /** What `encodeIotUsername` names the broker's authorizer with. */
   customAuthorizerName: string;
@@ -38,6 +45,21 @@ export function parseIotCredentials(text: string): IotCredentials {
     }
   }
   return fields as IotCredentials;
+}
+
+/** The cloud's broker, which takes MQTT over TLS on port 443 and tells it
+ * from HTTPS there by the ALPN protocol, logged in to as `credentials`
+ * under `clientId`. */
+export function buildCloudBroker(
+  credentials: IotCredentials,
+  clientId: string,
+): DysonBroker {
+  return {
+    url: `mqtts://${credentials.endpoint}:${CLOUD_BROKER_PORT}`,
+    clientId,
+    username: encodeIotUsername(credentials),
+    ALPNProtocols: [CLOUD_BROKER_ALPN_PROTOCOL],
+  };
 }
 
 /** The MQTT username the broker takes the credentials as. The broker takes

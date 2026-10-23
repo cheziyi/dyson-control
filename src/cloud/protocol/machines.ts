@@ -1,11 +1,24 @@
 import { createDecipheriv } from "node:crypto";
 import { DysonError } from "../../error.js";
+import type { DysonRegion } from "../models/account.js";
 import { type DysonMachine, MACHINE_CATEGORIES } from "../models/machine.js";
 import {
   CLOUD_LOCAL_BROKER_CREDENTIALS_CIPHER,
   CLOUD_MACHINE_CATEGORY_CODES,
+  CLOUD_QUERY_PARAMETERS,
   CLOUD_REMOTE_BROKER_TYPE_CODES,
 } from "./tables.js";
+
+/** The query of the manifest route: the account's country as its market and
+ * its culture as its locale. */
+export function buildManifestQuery(
+  region: Required<DysonRegion>,
+): Record<string, string> {
+  return {
+    [CLOUD_QUERY_PARAMETERS.market]: region.country,
+    [CLOUD_QUERY_PARAMETERS.locale]: region.culture,
+  };
+}
 
 /** The machines of a manifest that the broker reaches: an entry the cloud
  * gives no MQTT configuration, serial number or type for is left out. It

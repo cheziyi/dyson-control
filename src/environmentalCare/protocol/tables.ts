@@ -1,4 +1,4 @@
-import type { Filter } from "../models/capabilities.js";
+import type { Filter, TargetTemperatureRange } from "../models/capabilities.js";
 import type {
   AirQualityTarget,
   CleanCycleState,
@@ -14,6 +14,7 @@ import type {
   OscillationPresetAngle,
   OscillationState,
   OuterFilterType,
+  SecuredFilterType,
   TemperatureUnit,
   TiltAngle,
   WaterHardness,
@@ -82,6 +83,17 @@ export const ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE: readonly string[] = [
   "635",
   "918",
 ];
+
+/** The lowest and the highest target temperature a heater takes, but the
+ * types in `ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_TARGET_TEMPERATURE_RANGE`. */
+export const ENVIRONMENTAL_CARE_TARGET_TEMPERATURE_RANGE: Readonly<TargetTemperatureRange> =
+  { minInC: 0, maxInC: 37 };
+
+export const ENVIRONMENTAL_CARE_NARROW_TARGET_TEMPERATURE_RANGE: Readonly<TargetTemperatureRange> =
+  { minInC: 11, maxInC: 32 };
+
+export const ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_TARGET_TEMPERATURE_RANGE: readonly string[] =
+  ["635", "918"];
 
 /** The types that take a `fanAirDirection`, unless their variant is in
  * `ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION`. */
@@ -200,6 +212,12 @@ export const ENVIRONMENTAL_CARE_TYPES_WITHOUT_TEMPERATURE_UNIT: readonly string[
 export const ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_TEMPERATURE_UNIT: readonly string[] =
   ["438M"];
 
+/** Each a type and its variant joined, as in
+ * `ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_FAN_AIR_DIRECTION`: the machines that
+ * report no temperature. */
+export const ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_TEMPERATURE_SENSOR: readonly string[] =
+  ["438M"];
+
 export const ENVIRONMENTAL_CARE_TYPES_WITH_NOZZLE_ANGLE: readonly string[] = [
   "831",
 ];
@@ -306,6 +324,7 @@ export const ENVIRONMENTAL_CARE_FIELDS = {
   outerFilterLife: "hflr",
   innerFilterType: "cflt",
   outerFilterType: "hflt",
+  securedFilterType: "sflt",
 } as const;
 
 /** The field each filter's life is reset by, with
@@ -325,11 +344,15 @@ export const ENVIRONMENTAL_CARE_FILTER_LIFE_IN_HOURS = 4300;
 
 /** The fields of the `data` of a sensors message. A high-resolution field is
  * a concentration: micrograms per cubic metre, or parts per million for
- * carbon dioxide. Every other pollutant field is an index, in tenths. A
- * machine of the first generation reports its sleep timer here. */
+ * carbon dioxide. Every other pollutant field is an index, in tenths, but a
+ * machine of the first generation's dust and volatile organic compounds,
+ * which it reports as a whole number from 0 to 9. A machine of the first
+ * generation reports its sleep timer here. */
 export const ENVIRONMENTAL_CARE_SENSOR_FIELDS = {
   temperature: "tact",
   humidity: "hact",
+  generation1Dust: "pact",
+  generation1VolatileOrganicCompounds: "vact",
   pm25: "pm25",
   highResolutionPm25: "p25r",
   pm10: "pm10",
@@ -525,6 +548,13 @@ export const ENVIRONMENTAL_CARE_OUTER_FILTER_TYPE_CODES: Readonly<
   esco: "ESCO",
   ecar: "ECAR",
   escc: "ESCC",
+  none: "NONE",
+};
+
+export const ENVIRONMENTAL_CARE_SECURED_FILTER_TYPE_CODES: Readonly<
+  Record<SecuredFilterType, string>
+> = {
+  sco: "SCOH",
   none: "NONE",
 };
 

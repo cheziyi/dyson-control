@@ -30,8 +30,15 @@ export const FILTERS = ["filter", "innerFilter", "outerFilter"] as const;
  * an `outerFilter`. */
 export type Filter = (typeof FILTERS)[number];
 
-/** Each field but `oscillation`, `oscillationAngleWidthsInDegrees`,
- * `hasAirQualitySensor` and `filters` is named for the
+/** The lowest and the highest `targetTemperatureInC` a heater takes. */
+export interface TargetTemperatureRange {
+  minInC: number;
+  maxInC: number;
+}
+
+/** Each field but `targetTemperatureRange`, `oscillation`,
+ * `oscillationAngleWidthsInDegrees`, `hasAirQualitySensor`,
+ * `hasTemperatureSensor` and `filters` is named for the
  * `EnvironmentalCareState` field it governs, and says whether `setState`
  * takes that field or which values it takes. An empty list is a field the
  * machine does not take, and `setState` rejects a field the machine does
@@ -39,8 +46,12 @@ export type Filter = (typeof FILTERS)[number];
 export interface EnvironmentalCareCapabilities {
   autoMode: boolean;
   continuousMonitoring: boolean;
-  /** Also governs `targetTemperatureInC`. */
+  /** Also governs `targetTemperatureInC`, which `targetTemperatureRange`
+   * bounds. */
   heatModes: HeatMode[];
+  /** The `targetTemperatureInC` the machine takes, or `null` for one
+   * without a heater. */
+  targetTemperatureRange: TargetTemperatureRange | null;
   fanAirDirections: FanAirDirection[];
   /** Also governs `manualHumidificationTargetInPercent`. */
   humidificationModes: HumidificationMode[];
@@ -49,7 +60,9 @@ export interface EnvironmentalCareCapabilities {
    * other oscillation. */
   oscillation: OscillationKind;
   /** `off` and `on` for a `basic` oscillation, and `idleOff` and `idleOn`
-   * as well for an `advanced` or a `barrel` one. */
+   * as well for an `advanced` or a `barrel` one, whose `on` and `idleOn`
+   * `setState` takes only with `oscillationAngles` or an
+   * `oscillationPresetAngleInDegrees`: see UNSUPPORTED.md. */
   oscillationModes: OscillationMode[];
   /** The widest `oscillationAngles` the machine takes: it takes two angles
    * between these, the lower first, apart by one of
@@ -77,6 +90,8 @@ export interface EnvironmentalCareCapabilities {
   /** Whether the machine measures the air, and so reports the pollutant
    * readings of `EnvironmentalCareSensors`. */
   hasAirQualitySensor: boolean;
+  /** Whether the machine reports `EnvironmentalCareSensors.temperatureInC`. */
+  hasTemperatureSensor: boolean;
   /** The filters whose life the machine reports, which
    * `EnvironmentalCareClient.resetFilterLife` takes. */
   filters: Filter[];

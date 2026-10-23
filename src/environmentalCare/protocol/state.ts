@@ -38,6 +38,7 @@ import {
   ENVIRONMENTAL_CARE_OUTER_FILTER_TYPE_CODES,
   ENVIRONMENTAL_CARE_RESET_FILTER_LIFE_CODE,
   ENVIRONMENTAL_CARE_RESET_FILTER_LIFE_FIELDS,
+  ENVIRONMENTAL_CARE_SECURED_FILTER_TYPE_CODES,
   ENVIRONMENTAL_CARE_SENSOR_FIELDS,
   ENVIRONMENTAL_CARE_SWITCH_CODES,
   ENVIRONMENTAL_CARE_TEMPERATURE_UNIT_CODES,
@@ -193,6 +194,10 @@ export function parseEnvironmentalCareState(
     outerFilterType: decodeCode(
       ENVIRONMENTAL_CARE_OUTER_FILTER_TYPE_CODES,
       values[ENVIRONMENTAL_CARE_FIELDS.outerFilterType],
+    ),
+    securedFilterType: decodeCode(
+      ENVIRONMENTAL_CARE_SECURED_FILTER_TYPE_CODES,
+      values[ENVIRONMENTAL_CARE_FIELDS.securedFilterType],
     ),
     heatState: decodeCode(
       ENVIRONMENTAL_CARE_HEAT_MODE_CODES,
@@ -388,14 +393,14 @@ const FIELDS_WRITTEN_ALONE: readonly (keyof EnvironmentalCareControl)[] = [
   "continuousMonitoring",
   "waterHardness",
   "temperatureUnit",
-  "airQualityTarget",
   "wickDryingMode",
   "wickDryingSpeed",
 ];
 
 // A machine of the first generation is switched on by its fan mode, which
 // takes it out of auto mode, so no other field switches it on. An advanced
-// or a barrel oscillation, and find and follow, go off without it.
+// or a barrel oscillation, find and follow, and the sleep timer go off
+// without it.
 function switchesOn(
   type: EnvironmentalCareType,
   capabilities: EnvironmentalCareCapabilities,
@@ -410,7 +415,8 @@ function switchesOn(
       capabilities.oscillation !== "basic" &&
       (control.oscillationMode === "off" ||
         control.oscillationMode === "idleOff")) ||
-    (field === "findAndFollowMode" && control.findAndFollowMode === "off");
+    (field === "findAndFollowMode" && control.findAndFollowMode === "off") ||
+    (field === "sleepTimerInMinutes" && control.sleepTimerInMinutes === "off");
   return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).some(
     (field) => control[field] !== undefined && !writtenAlone(field),
   );
@@ -434,13 +440,14 @@ export function parseEnvironmentalCareSensors(
   return {
     temperatureInC: decodeTemperature(values[fields.temperature], type),
     humidityInPercent: decodeNumber(values[fields.humidity]),
+    dustIndex: decodeNumber(values[fields.generation1Dust]),
     pm25InUgPerM3: decodeNumber(values[fields.highResolutionPm25]),
     pm25Index: decodeTenths(values[fields.pm25]),
     pm10InUgPerM3: decodeNumber(values[fields.highResolutionPm10]),
     pm10Index: decodeTenths(values[fields.pm10]),
-    volatileOrganicCompoundsIndex: decodeTenths(
-      values[fields.generation2VolatileOrganicCompounds],
-    ),
+    volatileOrganicCompoundsIndex: type.generation1
+      ? decodeNumber(values[fields.generation1VolatileOrganicCompounds])
+      : decodeTenths(values[fields.generation2VolatileOrganicCompounds]),
     nitrogenDioxideIndex: decodeTenths(values[fields.nitrogenDioxide]),
     formaldehydeInUgPerM3: decodeNumber(
       values[fields.highResolutionFormaldehyde],

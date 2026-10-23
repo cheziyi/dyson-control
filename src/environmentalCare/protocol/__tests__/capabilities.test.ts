@@ -23,6 +23,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       autoMode: true,
       continuousMonitoring: true,
       heatModes: [],
+      targetTemperatureRange: null,
       fanAirDirections: ["forward", "backward"],
       humidificationModes: [],
       autoHumidification: false,
@@ -44,6 +45,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       uvMode: false,
       ionisationMode: false,
       hasAirQualitySensor: true,
+      hasTemperatureSensor: true,
       filters: ["innerFilter", "outerFilter"],
     });
   });
@@ -93,6 +95,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       autoMode: true,
       continuousMonitoring: true,
       heatModes: [],
+      targetTemperatureRange: null,
       fanAirDirections: ["forward", "backward"],
       humidificationModes: ["off", "humidify"],
       autoHumidification: true,
@@ -114,6 +117,7 @@ describe("decodeEnvironmentalCareCapabilities", () => {
       uvMode: false,
       ionisationMode: false,
       hasAirQualitySensor: true,
+      hasTemperatureSensor: true,
       filters: ["innerFilter", "outerFilter"],
     });
   });
@@ -167,6 +171,29 @@ describe("decodeEnvironmentalCareCapabilities", () => {
     expect(decode({ type: "897" })).toMatchObject({ temperatureUnits: [] });
     expect(decode({ type: "438", variant: "M" })).toMatchObject({
       temperatureUnits: [],
+    });
+  });
+
+  it("reads no temperature sensor for a 438 of variant M", () => {
+    expect(decode({ type: "438", variant: "M" })).toMatchObject({
+      hasTemperatureSensor: false,
+    });
+    expect(decode({ type: "438", variant: "K" })).toMatchObject({
+      hasTemperatureSensor: true,
+    });
+  });
+
+  it("reads the target temperatures a heater takes, narrower on a 635 and a 918", () => {
+    expect(decode({ type: "527" })).toMatchObject({
+      targetTemperatureRange: { minInC: 0, maxInC: 37 },
+    });
+    for (const type of ["635", "918"]) {
+      expect(decode({ type })).toMatchObject({
+        targetTemperatureRange: { minInC: 11, maxInC: 32 },
+      });
+    }
+    expect(decode({ type: "438" })).toMatchObject({
+      targetTemperatureRange: null,
     });
   });
 

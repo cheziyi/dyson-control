@@ -1,6 +1,6 @@
 import type { DysonAccount } from "./models/account.js";
 import type { DysonMachine } from "./models/machine.js";
-import { parseMachines } from "./protocol/machines.js";
+import { buildManifestQuery, parseMachines } from "./protocol/machines.js";
 import { CLOUD_ROUTES } from "./protocol/tables.js";
 import {
   DysonCloudTransport,
@@ -40,7 +40,7 @@ export async function getMachines(
         transport.send({
           method: "GET",
           path: CLOUD_ROUTES.manifest,
-          query: { market: account.country, locale: account.culture },
+          query: buildManifestQuery(account),
         }),
       options.retry,
     ),

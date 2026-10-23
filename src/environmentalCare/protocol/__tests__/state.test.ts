@@ -90,6 +90,7 @@ const NOTHING_REPORTED: EnvironmentalCareState = {
   outerFilterLifeInPercent: null,
   innerFilterType: null,
   outerFilterType: null,
+  securedFilterType: null,
   heatState: null,
   humidificationState: null,
   wickDryingState: null,
@@ -342,6 +343,12 @@ describe("parseEnvironmentalCareState", () => {
     ).toMatchObject({ airQualityTarget, focusDiffuse: "diffuse" });
   });
 
+  it("reads the type of the secured filter", () => {
+    expect(
+      parseEnvironmentalCareState({ sflt: "SCOH" }, LATER).securedFilterType,
+    ).toBe("sco");
+  });
+
   it("reads the minutes left on the sleep timer", () => {
     expect(
       parseEnvironmentalCareState({ fpwr: "ON", sltm: "0030" }, LATER)
@@ -512,6 +519,7 @@ describe("applyEnvironmentalCareControl", () => {
     ["temperature unit", { temperatureUnit: "fahrenheit" }, { corf: "OFF" }],
     ["wick drying mode", { wickDryingMode: true }, { wdmd: "ON" }],
     ["wick drying speed", { wickDryingSpeed: "normal" }, { wdsp: "NORM" }],
+    ["sleep timer off", { sleepTimerInMinutes: "off" }, { sltm: "OFF" }],
   ] as const)("writes the %s alone", (_name, control, data) => {
     expect(apply("965", control)).toEqual(data);
   });
@@ -719,6 +727,7 @@ describe("parseEnvironmentalCareSensors", () => {
   const NO_READING: EnvironmentalCareSensors = {
     temperatureInC: null,
     humidityInPercent: null,
+    dustIndex: null,
     pm25InUgPerM3: null,
     pm25Index: null,
     pm10InUgPerM3: null,
@@ -754,6 +763,7 @@ describe("parseEnvironmentalCareSensors", () => {
     ).toEqual({
       temperatureInC: 22.05,
       humidityInPercent: 55,
+      dustIndex: null,
       pm25InUgPerM3: 25,
       pm25Index: 2.7,
       pm10InUgPerM3: 25,
@@ -785,6 +795,19 @@ describe("parseEnvironmentalCareSensors", () => {
       parseEnvironmentalCareSensors({ tact: "2950" }, GENERATION_1)
         .temperatureInC,
     ).toBe(22);
+  });
+
+  it("reads the dust and the volatile organic compounds of the first generation as whole numbers", () => {
+    expect(
+      parseEnvironmentalCareSensors(
+        { pact: "0003", vact: "0005" },
+        GENERATION_1,
+      ),
+    ).toEqual({
+      ...NO_READING,
+      dustIndex: 3,
+      volatileOrganicCompoundsIndex: 5,
+    });
   });
 
   it("reads the sleep timer of the first generation", () => {

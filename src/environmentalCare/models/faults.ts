@@ -8,7 +8,8 @@
 export interface EnvironmentalCareFaults {
   productErrors: string[];
   productWarnings: string[];
-  /** The faults of the machine's Wi-Fi module. */
+  /** What part of the machine the `module` groups report on is not known:
+   * see UNSUPPORTED.md. */
   moduleErrors: string[];
   moduleWarnings: string[];
 }

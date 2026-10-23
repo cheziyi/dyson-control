@@ -28,6 +28,7 @@ export {
   FILTERS,
   type Filter,
   type OscillationKind,
+  type TargetTemperatureRange,
 } from "./environmentalCare/models/capabilities.js";
 export type { EnvironmentalCareFaults } from "./environmentalCare/models/faults.js";
 export {
@@ -64,6 +65,8 @@ export {
   type OscillationState,
   OUTER_FILTER_TYPES,
   type OuterFilterType,
+  SECURED_FILTER_TYPES,
+  type SecuredFilterType,
   TEMPERATURE_UNITS,
   type TemperatureUnit,
   TILT_ANGLES,

@@ -173,6 +173,11 @@ export class EnvironmentalCareClient {
         `The machine takes no ${fields.join(", ")}: see EnvironmentalCareClient.capabilities`,
       );
     }
+    if (switchesOscillationOnAlone(this.capabilities, control)) {
+      throw new Error(
+        "The machine takes an oscillationMode of on or idleOn only with oscillationAngles or an oscillationPresetAngleInDegrees: see EnvironmentalCareClient.capabilities.oscillationModes",
+      );
+    }
     const data = applyEnvironmentalCareControl(
       this.type,
       this.capabilities,
@@ -223,8 +228,6 @@ export class EnvironmentalCareClient {
     }
     await this.setProductState(buildEnvironmentalCareFilterLifeReset(filter));
   }
-
-  // --- raw fields ------------------------------------------------------------
 
   /** Asks the machine for its `product-state`, as field -> value: every
    * field it reports, modelled or not. */
@@ -309,7 +312,9 @@ function fieldsNotTaken(
       control.fanAirDirection,
     ),
     heatMode: takes(capabilities.heatModes, control.heatMode),
-    targetTemperatureInC: capabilities.heatModes.length > 0,
+    targetTemperatureInC:
+      control.targetTemperatureInC === undefined ||
+      takesTargetTemperature(capabilities, control.targetTemperatureInC),
     humidificationMode: takes(
       capabilities.humidificationModes,
       control.humidificationMode,
@@ -347,6 +352,34 @@ function fieldsNotTaken(
   };
   return (Object.keys(control) as (keyof EnvironmentalCareControl)[]).filter(
     (field) => control[field] !== undefined && taken[field] === false,
+  );
+}
+
+function takesTargetTemperature(
+  capabilities: EnvironmentalCareCapabilities,
+  temperatureInC: number,
+): boolean {
+  const range = capabilities.targetTemperatureRange;
+  return (
+    range !== null &&
+    range.minInC <= temperatureInC &&
+    temperatureInC <= range.maxInC
+  );
+}
+
+// A machine is written `oson` `ON` or `OION` only beside its angles or its
+// preset, and what it does with one alone is not known.
+function switchesOscillationOnAlone(
+  capabilities: EnvironmentalCareCapabilities,
+  control: EnvironmentalCareControl,
+): boolean {
+  return (
+    (capabilities.oscillation === "advanced" ||
+      capabilities.oscillation === "barrel") &&
+    (control.oscillationMode === "on" ||
+      control.oscillationMode === "idleOn") &&
+    control.oscillationAngles === undefined &&
+    control.oscillationPresetAngleInDegrees === undefined
   );
 }
 
