@@ -17,6 +17,15 @@ describe("the environmental care tables", () => {
       ENVIRONMENTAL_CARE_TYPES_WITH_HEAT_MODE: [
         ...["455", "527", "527E", "527K", "635", "918"],
       ],
+      ENVIRONMENTAL_CARE_TARGET_TEMPERATURE_RANGE: { minInC: 0, maxInC: 37 },
+      ENVIRONMENTAL_CARE_NARROW_TARGET_TEMPERATURE_RANGE: {
+        minInC: 11,
+        maxInC: 32,
+      },
+      ENVIRONMENTAL_CARE_TYPES_WITH_NARROW_TARGET_TEMPERATURE_RANGE: [
+        "635",
+        "918",
+      ],
       ENVIRONMENTAL_CARE_TYPES_WITH_FAN_AIR_DIRECTION: [
         ...["358", "358E", "358K", "438", "438E", "438K", "520"],
         ...["527", "527E", "527K"],
@@ -66,6 +75,7 @@ describe("the environmental care tables", () => {
         ...["739", "897", "917", "949", "960", "997", "1018"],
       ],
       ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_TEMPERATURE_UNIT: ["438M"],
+      ENVIRONMENTAL_CARE_VARIANTS_WITHOUT_TEMPERATURE_SENSOR: ["438M"],
       ENVIRONMENTAL_CARE_TYPES_WITH_NOZZLE_ANGLE: ["831"],
       ENVIRONMENTAL_CARE_TYPES_WITH_FOCUS_DIFFUSE: ["455"],
       ENVIRONMENTAL_CARE_TYPES_WITH_WICK_DRYING: ["965"],
@@ -144,6 +154,7 @@ describe("the environmental care tables", () => {
         outerFilterLife: "hflr",
         innerFilterType: "cflt",
         outerFilterType: "hflt",
+        securedFilterType: "sflt",
       },
       ENVIRONMENTAL_CARE_RESET_FILTER_LIFE_FIELDS: {
         filter: "rstf",
@@ -155,6 +166,8 @@ describe("the environmental care tables", () => {
       ENVIRONMENTAL_CARE_SENSOR_FIELDS: {
         temperature: "tact",
         humidity: "hact",
+        generation1Dust: "pact",
+        generation1VolatileOrganicCompounds: "vact",
         pm25: "pm25",
         highResolutionPm25: "p25r",
         pm10: "pm10",
@@ -270,6 +283,10 @@ describe("the environmental care tables", () => {
         esco: "ESCO",
         ecar: "ECAR",
         escc: "ESCC",
+        none: "NONE",
+      },
+      ENVIRONMENTAL_CARE_SECURED_FILTER_TYPE_CODES: {
+        sco: "SCOH",
         none: "NONE",
       },
       ENVIRONMENTAL_CARE_FAULT_GROUPS: {

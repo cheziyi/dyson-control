@@ -36,6 +36,18 @@ describe("getCloudBroker", () => {
     ]);
   });
 
+  it("logs in with a client id of its own when the cloud hands out none", async () => {
+    cloud.reply = () =>
+      json({
+        ...CREDENTIALS,
+        IoTCredentials: { ...CREDENTIALS.IoTCredentials, ClientId: "" },
+      });
+
+    await expect(get()).resolves.toMatchObject({
+      clientId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+  });
+
   it("rejects with the cloud's status when it hands out no credentials", async () => {
     cloud.reply = () => json({}, 401);
 

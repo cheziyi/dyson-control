@@ -12,15 +12,21 @@ export interface DysonRegion {
   culture?: string;
 }
 
-/** What `login` takes to log an account in. */
-export interface LoginCredentials {
+/** What `login` takes to log an account in: the password with the code the
+ * cloud emailed, or the password alone for an account `requestLoginCode`
+ * resolved with `null` for. */
+export type LoginCredentials = {
   email: string;
   password: string;
-  /** What `requestLoginCode` resolved with. */
-  challengeId: string;
-  /** The code the cloud emailed. */
-  otpCode: string;
-}
+} & (
+  | {
+      /** What `requestLoginCode` resolved with. */
+      challengeId: string;
+      /** The code the cloud emailed. */
+      otpCode: string;
+    }
+  | { challengeId?: undefined; otpCode?: undefined }
+);
 
 /** A logged-in Dyson account, as `login` resolves with it. Store it and pass
  * it to `getMachines` and to a client: it holds no password. */

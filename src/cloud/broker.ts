@@ -1,16 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { DysonError } from "../error.js";
 import type { DysonBroker } from "./connection.js";
 import type { DysonMachine } from "./models/machine.js";
 import {
+  buildCloudBroker,
   buildIotCredentialsRequest,
-  encodeIotUsername,
   parseIotCredentials,
 } from "./protocol/iotCredentials.js";
-import {
-  CLOUD_BROKER_ALPN_PROTOCOL,
-  CLOUD_BROKER_PORT,
-  CLOUD_ROUTES,
-} from "./protocol/tables.js";
+import { CLOUD_ROUTES } from "./protocol/tables.js";
 import type { DysonCloudTransport } from "./transport.js";
 
 /** Asks the cloud through `transport` for the machine's broker, with
@@ -34,11 +31,10 @@ export async function getCloudBroker(
       jsonBody: buildIotCredentialsRequest(machine.serialNumber),
     }),
   );
-  return {
-    url: `mqtts://${credentials.endpoint}:${CLOUD_BROKER_PORT}`,
-    clientId: credentials.clientId,
-    username: encodeIotUsername(credentials),
-    // On port 443 the broker tells MQTT from HTTPS by this.
-    ALPNProtocols: [CLOUD_BROKER_ALPN_PROTOCOL],
-  };
+  // The cloud hands out an empty ClientId at times: the broker then takes
+  // one of the client's own.
+  return buildCloudBroker(
+    credentials,
+    credentials.clientId === "" ? randomUUID() : credentials.clientId,
+  );
 }

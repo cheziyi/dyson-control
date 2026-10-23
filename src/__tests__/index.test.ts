@@ -25,6 +25,7 @@ describe("the package", () => {
       "OSCILLATION_STATES",
       "OUTER_FILTER_TYPES",
       "REMOTE_BROKER_TYPES",
+      "SECURED_FILTER_TYPES",
       "TEMPERATURE_UNITS",
       "TILT_ANGLES",
       "WATER_HARDNESSES",

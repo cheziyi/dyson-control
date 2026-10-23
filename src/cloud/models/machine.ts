@@ -22,8 +22,8 @@ export type RemoteBrokerType = (typeof REMOTE_BROKER_TYPES)[number];
 /** A machine registered to an account, as `getMachines` finds it or as a
  * caller writes it by hand, carrying what a client needs to reach it. A
  * machine written by hand needs only `serialNumber` and `type` to connect,
- * but `EnvironmentalCareClient.capabilities` also reads `variant` and
- * `firmwareCapabilities`. */
+ * but `EnvironmentalCareClient.capabilities` also reads `variant`, `model`
+ * and `firmwareCapabilities`. */
 export interface DysonMachine {
   serialNumber: string;
   /** The cloud's code for the kind of machine, such as `438`. It says how
@@ -50,6 +50,6 @@ export interface DysonMachine {
   /** Left out means `awsIot`. */
   remoteBrokerType?: RemoteBrokerType;
   /** The password of the machine's own broker on the LAN, which a client
-   * given a `host` logs in with. */
+   * reaching the machine there logs in with. */
   apPasswordHash?: string;
 }

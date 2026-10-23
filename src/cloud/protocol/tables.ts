@@ -11,20 +11,34 @@ export const CLOUD_ORIGINS = {
 
 export const CLOUD_CHINA_COUNTRY = "CN";
 
-/** The cloud has spelled the `authenticationMethod` of an account that logs
- * in with a code both ways. */
-export const CLOUD_LOGIN_CODE_USER_STATUS = {
-  accountStatus: "ACTIVE",
-  authenticationMethods: ["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"],
+/** The `accountStatus` of an account the cloud logs in. */
+export const CLOUD_ACTIVE_ACCOUNT_STATUS = "ACTIVE";
+
+/** The `authenticationMethod` of an account, by how it logs in: with a code
+ * the cloud emails, or with its password alone. The cloud has spelled the
+ * first both ways. */
+export const CLOUD_AUTHENTICATION_METHODS = {
+  loginCode: ["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"],
+  password: ["EMAIL_PASSWORD"],
 } as const;
 
 export const CLOUD_ROUTES = {
   userStatus: "/v3/userregistration/email/userstatus",
   loginCode: "/v3/userregistration/email/auth",
-  login: "/v3/userregistration/email/verify",
+  loginWithCode: "/v3/userregistration/email/verify",
+  loginWithPassword: "/v3/userregistration/authenticate",
   manifest: "/v3/manifest",
   iotCredentials: "/v2/authorize/iot-credentials",
   supportedMarket: "/v1/supportedmarket",
+} as const;
+
+/** The query parameters of the login and the manifest routes. The manifest
+ * takes the country as `market` and the culture as `locale`. */
+export const CLOUD_QUERY_PARAMETERS = {
+  country: "country",
+  culture: "culture",
+  market: "market",
+  locale: "locale",
 } as const;
 
 /** `category` in the manifest. */

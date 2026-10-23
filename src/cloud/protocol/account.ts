@@ -5,10 +5,16 @@ import type {
   LoginCredentials,
 } from "../models/account.js";
 import {
+  CLOUD_ACTIVE_ACCOUNT_STATUS,
+  CLOUD_AUTHENTICATION_METHODS,
   CLOUD_CHINA_COUNTRY,
-  CLOUD_LOGIN_CODE_USER_STATUS,
   CLOUD_ORIGINS,
+  CLOUD_QUERY_PARAMETERS,
 } from "./tables.js";
+
+/** How an account logs in: with a code the cloud emails, or with its
+ * password alone. */
+export type LoginMethod = keyof typeof CLOUD_AUTHENTICATION_METHODS;
 
 /** The cloud an account's requests go to, or the global one for no
  * country. */
@@ -31,14 +37,32 @@ export function encodeAccountToken(
   return { Authorization: `${account.tokenType} ${account.token}` };
 }
 
+/** The query of the user status and the login routes. */
+export function buildCountryQuery(
+  region: Pick<Required<DysonRegion>, "country">,
+): Record<string, string> {
+  return { [CLOUD_QUERY_PARAMETERS.country]: region.country };
+}
+
+/** The query of the login code route, which takes the culture as well. */
+export function buildRegionQuery(
+  region: Required<DysonRegion>,
+): Record<string, string> {
+  return {
+    [CLOUD_QUERY_PARAMETERS.country]: region.country,
+    [CLOUD_QUERY_PARAMETERS.culture]: region.culture,
+  };
+}
+
 export function buildUserStatusRequest(email: string): unknown {
   return { email };
 }
 
-/** Throws a `DysonError` with status 401 for a user status the cloud emails
- * no login code for: an `accountStatus` of `UNREGISTERED` or
- * `NEEDS_ACTIVATION`, or an `authenticationMethod` of `EMAIL_PASSWORD`. */
-export function parseUserStatusReply(text: string): void {
+/** How the account logs in. It throws a `DysonError` with status 401 for a
+ * user status the cloud logs no account in for: an `accountStatus` of
+ * `UNREGISTERED` or `NEEDS_ACTIVATION`, or an `authenticationMethod` outside
+ * `CLOUD_AUTHENTICATION_METHODS`. */
+export function parseUserStatusReply(text: string): LoginMethod {
   const { accountStatus, authenticationMethod } = parseCloudReply(text);
   if (typeof accountStatus !== "string") {
     throw new DysonError("The Dyson cloud sent no accountStatus", 502);
@@ -46,22 +70,26 @@ export function parseUserStatusReply(text: string): void {
   if (typeof authenticationMethod !== "string") {
     throw new DysonError("The Dyson cloud sent no authenticationMethod", 502);
   }
-  if (accountStatus !== CLOUD_LOGIN_CODE_USER_STATUS.accountStatus) {
+  if (accountStatus !== CLOUD_ACTIVE_ACCOUNT_STATUS) {
     throw new DysonError(
-      `The Dyson cloud emails no login code for an accountStatus of ${accountStatus}`,
+      `The Dyson cloud logs in no account with an accountStatus of ${accountStatus}`,
       401,
     );
   }
-  if (
-    !(
-      CLOUD_LOGIN_CODE_USER_STATUS.authenticationMethods as readonly string[]
-    ).includes(authenticationMethod)
-  ) {
+  const method = (
+    Object.keys(CLOUD_AUTHENTICATION_METHODS) as LoginMethod[]
+  ).find((each) =>
+    (CLOUD_AUTHENTICATION_METHODS[each] as readonly string[]).includes(
+      authenticationMethod,
+    ),
+  );
+  if (method === undefined) {
     throw new DysonError(
-      `The Dyson cloud emails no login code for an authenticationMethod of ${authenticationMethod}`,
+      `The Dyson cloud logs in no account with an authenticationMethod of ${authenticationMethod}`,
       401,
     );
   }
+  return method;
 }
 
 export function buildLoginCodeRequest(email: string): unknown {
@@ -77,13 +105,13 @@ export function parseLoginCodeReply(text: string): string {
   return challengeId;
 }
 
+/** The body of a login: the password with the code, or the password alone
+ * for an account that logs in without one. */
 export function buildLoginRequest(credentials: LoginCredentials): unknown {
-  return {
-    email: credentials.email,
-    password: credentials.password,
-    challengeId: credentials.challengeId,
-    otpCode: credentials.otpCode,
-  };
+  const { email, password, challengeId, otpCode } = credentials;
+  return challengeId === undefined
+    ? { email, password }
+    : { email, password, challengeId, otpCode };
 }
 
 export function parseLoginReply(

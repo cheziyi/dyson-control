@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { DysonError } from "../../../error.js";
 import {
+  buildCountryQuery,
   buildLoginCodeRequest,
   buildLoginRequest,
+  buildRegionQuery,
   buildUserStatusRequest,
   encodeAccountToken,
   encodeCloudOrigin,
@@ -39,6 +41,16 @@ describe("encodeAccountToken", () => {
   });
 });
 
+describe("the queries", () => {
+  it("send the country, and the culture for a login code", () => {
+    expect(buildCountryQuery(REGION)).toEqual({ country: "GB" });
+    expect(buildRegionQuery(REGION)).toEqual({
+      country: "GB",
+      culture: "en-GB",
+    });
+  });
+});
+
 describe("the user status", () => {
   it("is requested for an email address", () => {
     expect(buildUserStatusRequest("me@example.com")).toEqual({
@@ -47,15 +59,23 @@ describe("the user status", () => {
   });
 
   it.each(["EMAIL_PASSWORD_2FA", "EMAIL_PWD_2FA"])(
-    "passes an active account whose authenticationMethod is %s",
+    "reads an active account whose authenticationMethod is %s as logging in with a code",
     (authenticationMethod) => {
-      expect(() =>
+      expect(
         parseUserStatusReply(
           JSON.stringify({ accountStatus: "ACTIVE", authenticationMethod }),
         ),
-      ).not.toThrow();
+      ).toBe("loginCode");
     },
   );
+
+  it("reads an account whose authenticationMethod is EMAIL_PASSWORD as logging in with its password", () => {
+    expect(
+      parseUserStatusReply(
+        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PASSWORD"}',
+      ),
+    ).toBe("password");
+  });
 
   it.each(["UNREGISTERED", "NEEDS_ACTIVATION"])(
     "throws status 401 for an accountStatus of %s",
@@ -69,21 +89,21 @@ describe("the user status", () => {
         ),
       ).toThrow(
         new DysonError(
-          `The Dyson cloud emails no login code for an accountStatus of ${accountStatus}`,
+          `The Dyson cloud logs in no account with an accountStatus of ${accountStatus}`,
           401,
         ),
       );
     },
   );
 
-  it("throws status 401 for an authenticationMethod of EMAIL_PASSWORD", () => {
+  it("throws status 401 for an authenticationMethod it does not know", () => {
     expect(() =>
       parseUserStatusReply(
-        '{"accountStatus":"ACTIVE","authenticationMethod":"EMAIL_PASSWORD"}',
+        '{"accountStatus":"ACTIVE","authenticationMethod":"MOBILE_2FA"}',
       ),
     ).toThrow(
       new DysonError(
-        "The Dyson cloud emails no login code for an authenticationMethod of EMAIL_PASSWORD",
+        "The Dyson cloud logs in no account with an authenticationMethod of MOBILE_2FA",
         401,
       ),
     );
@@ -137,6 +157,12 @@ describe("the login", () => {
       challengeId: "c-1",
       otpCode: "123456",
     });
+  });
+
+  it("sends the password alone for an account without a code", () => {
+    expect(
+      buildLoginRequest({ email: "me@example.com", password: "secret" }),
+    ).toEqual({ email: "me@example.com", password: "secret" });
   });
 
   it("is answered with the account", () => {

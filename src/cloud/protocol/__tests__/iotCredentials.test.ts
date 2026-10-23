@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCloudBroker,
   buildIotCredentialsRequest,
   encodeIotUsername,
   parseIotCredentials,
@@ -38,6 +39,17 @@ describe("the IoT credentials", () => {
     expect(() =>
       parseIotCredentials(JSON.stringify({ ...REPLY, IoTCredentials: {} })),
     ).toThrow(expect.objectContaining({ httpStatusCode: 502 }));
+  });
+});
+
+describe("buildCloudBroker", () => {
+  it("names the broker on port 443 over ALPN mqtt, logged in to as the credentials under the client id", () => {
+    expect(buildCloudBroker(CREDENTIALS, "client-2")).toEqual({
+      url: "mqtts://abc-ats.iot.eu-west-1.amazonaws.com:443",
+      clientId: "client-2",
+      username: encodeIotUsername(CREDENTIALS),
+      ALPNProtocols: ["mqtt"],
+    });
   });
 });
 

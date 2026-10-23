@@ -166,19 +166,27 @@ the largest change in the release.
 callers an edit: the break costs a minor bump and a line in the release
 notes.
 
-## Pull requests, commits, and comments
+## Prose
 
+Apply these to every sentence: a comment, a test name, a doc, a commit
+message, a pull request.
+
+- **Describe the machine, not a source.** State what the cloud or a machine
+  accepts and returns, in its own terms. Cite no other client or tool as the
+  source of a behaviour; name another product only to state compatibility, as
+  the README does. This file alone names the MyDyson app, to tell a
+  contributor what to mirror.
 - **Say who does what, in order.** "`fetch` times out, so the transport throws a
   `DysonError` with status 504", never "a timeout surfaces as a 504".
 - **Call a thing what the code calls it.** A buzzword or metaphor makes the
   reader translate it before they can act on it. Name the function, the
   endpoint, or the check.
-- **A person merges.** Never merge a pull request unless told to merge that
-  one, even when it is green and approved. Stop at ready to merge, and say which
-  pull request to merge and what it unblocks.
-- **Resolve a review thread once its fix is pushed**, with the GraphQL
-  `resolveReviewThread` mutation. Leave a thread open only while it is
-  unaddressed or waits on a person's decision.
+- **Delete rather than rephrase** a comment restating the command beside it, an
+  example repeating an earlier one, a consequence anyone already knows, an
+  aphorism standing where an instruction belongs, and a generic caution in
+  place of the specific trap.
+- **One fact has one home.** Explain it where it is decided, and link to that
+  from everywhere else.
 
 ## Documents
 
@@ -191,17 +199,16 @@ notes.
   position changes.
 - **A heading names what is under it.** "Caching", not "What it is careful
   about". A table column is `Holds`, `Meaning`, or `Why`, never `Is`.
-- **Delete rather than rephrase** a comment restating the command beside it, an
-  example repeating an earlier one, a consequence anyone already knows, an
-  aphorism standing where an instruction belongs, and a generic caution in
-  place of the specific trap.
-- **Describe the machine, not a source.** Code, comments, tests, docs and
-  commit messages state what the cloud or a machine accepts and returns, in
-  its own terms. Cite no other client or tool as the source of a behaviour;
-  name another product only to state compatibility, as the README does.
-- **One fact has one home.** Explain it where it is decided, and link to that
-  from everywhere else.
 - **Record a decision where it will be read again.** A decision whose
   alternative was built and rejected goes in `DESIGN.md`: what was chosen, what
   was rejected, and the fact that decided it. The README links to it in one line
   and carries none of the argument.
+
+## Pull requests
+
+- **A person merges.** Never merge a pull request unless told to merge that
+  one, even when it is green and approved. Stop at ready to merge, and say which
+  pull request to merge and what it unblocks.
+- **Resolve a review thread once its fix is pushed**, with the GraphQL
+  `resolveReviewThread` mutation. Leave a thread open only while it is
+  unaddressed or waits on a person's decision.

@@ -16,9 +16,26 @@ names, an environmental care machine's `status/current` and
 `status/faults`, and sends every command to the machine's `command` topic,
 with a `mode-reason` of `RAPP` through the cloud and `LAPP` on the LAN.
 
+Not built: the `status/connection` and `status/software` topics, whose
+`HELLO`, `GOODBYE`, `GONE-AWAY` and `UPGRADING-SOFTWARE` messages tell
+whether the machine is on the broker.
+
+- Polling is the caller's: `getState()` rejects with status 504 for a
+  machine that answers nothing.
+
+Not built: a keep-alive of 300 seconds on the cloud's broker, which takes
+one.
+
+- The MQTT library's 60 seconds holds the connection, and no requirement
+  forces another value.
+
 `getMachines` reads `apPasswordHash` from the manifest's
-`localBrokerCredentials`, which the MyDyson app decrypts with one key and IV
-for every machine.
+`localBrokerCredentials`, which one key and IV decrypt for every machine.
+
+Reaching a registered machine through its own broker is the package's own,
+as the fallback to the cloud's is: a registered machine is otherwise
+reached through the cloud's broker alone, and its own is opened only while
+it is set up.
 
 Given an `account`, each connection, a reconnect included, tries the
 machine's own broker and opens the cloud's when that fails in any way: no
@@ -70,10 +87,10 @@ A link logs in to the machine's broker with a client id of its own, 16
 random hex digits, kept across its reconnects. The broker refuses a client
 id that is empty or longer than 23 characters.
 
-Rejected: the serial number as the client id, as the MyDyson app sends it.
+Rejected: the serial number as the client id.
 
 - The broker closes a connection when another opens with its client id, so
-  two programs reaching one machine on the LAN closed each other's
+  two programs that both sent the serial number closed each other's
   connections until one gave up. The broker holds two connections with
   client ids of their own at once.
 
@@ -196,22 +213,23 @@ Rejected: treating a type that is not known as a later one.
   reports that the write did nothing.
 
 Every field of a control sends `fpwr` `ON` with it to a later machine, but
-those the MyDyson app writes to a machine that is off without switching it
-on: `continuousMonitoring`, `waterHardness`, `temperatureUnit`,
-`wickDryingMode`, `wickDryingSpeed`, an `oscillationMode` of `off` or
-`idleOff` to an `advanced` or a `barrel` oscillation, and a
-`findAndFollowMode` of `off`. The app switches a machine that is off on
-before it writes any other field, in a command of its own but for a
-`findAndFollowMode`; the client sends `fpwr` `ON` in the same `STATE-SET`
-every time, since it changes nothing on a machine that is on. A `fanPower`
-the control sets is sent as it sets it.
+those a machine that is off is written without switching it on:
+`continuousMonitoring`, `waterHardness`, `temperatureUnit`,
+`wickDryingMode`, `wickDryingSpeed`, a `sleepTimerInMinutes` of `off`, an
+`oscillationMode` of `off` or `idleOff` to an `advanced` or a `barrel`
+oscillation, and a `findAndFollowMode` of `off`. A machine that is off is
+switched on before it is written any other field, in a command of its own
+but for a `findAndFollowMode`, which goes with the power in one; the client
+sends `fpwr` `ON` in the same `STATE-SET` every time, since it changes
+nothing on a machine that is on. A `fanPower` the control sets is sent as
+it sets it.
 
 A machine of the first generation is switched on with an `autoMode` or a
 `fanSpeed` alone: `fmod` is `FAN` or `AUTO` for a machine that is on, so it
 has no way to take one without it.
 
 Not built: `fmod` `FAN` with every other field to a machine of the first
-generation, as the app sends it to one that is off.
+generation that is off, which is written it before every other field.
 
 - `fmod` `FAN` takes a machine that is on out of auto mode, and the client
   holds no state to tell one that is off by.
@@ -219,8 +237,8 @@ generation, as the app sends it to one that is off.
 A `fanPower` of `false` also sends the sleep timer off, in the same command.
 A `targetTemperatureInC` also sends `hmod` `HEAT`, an `autoHumidification`
 `hume` `HUMD`, and a `manualHumidificationTargetInPercent` `hume` `HUMD` and,
-to a machine that takes an `autoHumidification`, `haut` `OFF`: the app
-writes each of them before the field.
+to a machine that takes an `autoHumidification`, `haut` `OFF`: a machine
+is written each of them before the field.
 
 An `oscillationAngles` or an `oscillationPresetAngleInDegrees` also sends
 `oson` `ON`, in the same command.
@@ -265,10 +283,10 @@ A `tiltAngleInDegrees` sends `fpwr`, `fdir`, `oton`, `anct`, `otal` and
 for every other, and a breeze is `oton` `ON` with both angles `0359`.
 
 Not built: three commands for a tilt, the power, then `fdir`, then the tilt,
-as the MyDyson app sends them.
+as a machine is written them.
 
 - `setState` sends one command for a control, and a machine takes a
-  `findAndFollowMode` with its power in one, as the app sends it.
+  `findAndFollowMode` with its power in one.
 
 `setState` takes `idleOn` and `idleOff` for an `advanced` or a `barrel`
 oscillation alone, and `on` and `off` for a `basic` one. A machine is written
@@ -277,13 +295,25 @@ an `oscs` of `IDLE`, and `OIOF` when it goes off while `OION`.
 
 Rejected: sending an `oscillationMode` of `scan` as given.
 
-- A machine is never written `SCAN` in `oson`: find and follow takes it, in
-  `soon`.
+- A machine is written `SCAN` in `oson` only as the value it already reports
+  while find and follow scans: find and follow takes it, in `soon`.
+
+`setState` rejects an `oscillationMode` of `on` or `idleOn` alone for an
+`advanced` or a `barrel` oscillation: a machine is written `oson` `ON` or
+`OION` only beside its angles or its preset, and what it does with one
+alone is not known: [UNSUPPORTED.md](UNSUPPORTED.md#values).
+
+Not built: a `LOCATE`, whose `LOCATION` answer carries `apos`, the angle
+the machine points at, to centre a preset's width on it for a firmware that
+takes two angles.
+
+- A caller passes the two angles it wants.
 
 `resetFilterLife` sends one field, `RSTF` in `rstf`, `rscf` or `rshf`.
 
-Not built: `fmod` `OFF` with a reset or an `airQualityTarget`, for a
-machine of the first generation that is off, as the MyDyson app sends it.
+Not built: `fmod` `OFF`, or `fpwr` `OFF` on a later machine, with a
+`continuousMonitoring`, and `fmod` `OFF` with a reset or an
+`airQualityTarget`, to a machine that is off, as it is written them.
 
 - The client reads nothing before a write, so it has no state to tell a
   machine that is off by.
@@ -319,14 +349,11 @@ capabilities.
   where the tables take each new fact as one list.
 
 `findAndFollowModes` holds find and follow's modes for a `438` and a `527`
-of variant `N` and for every `949`: the MyDyson app builds its find and
-follow control for those machines alone.
+of variant `N` and for every `949`: the machines that take `soon`.
 
-Rejected: the `438` and the `527` of variant `N` alone, the two the app
-carries find and follow's pictures for.
+Rejected: the `438` and the `527` of variant `N` alone.
 
-- The app shows a `949` the same control without the pictures, and it
-  writes the same `soon` codes.
+- A `949` takes the same `soon` codes.
 
 Rejected: `parseEnvironmentalCareCapabilities`, a function exported beside
 the client.
@@ -392,12 +419,11 @@ A client receives the machine's `status/faults` topic from `connect`, beside
 a `CURRENT-FAULTS`. `MachineLink` subscribes to the topics its client names,
 so the faults topic stays the environmental care machine's.
 
-`ENVIRONMENTAL_CARE_FAULTS` names each code by its name in the MyDyson app's
-environmental care faults, and a code missing there by the name of its field
-in the app's faults message, the one that names the `module` groups' codes.
+`ENVIRONMENTAL_CARE_FAULTS` names each code by Dyson's name for it, written
+out in full. What part of the machine the `module` groups report on is not
+known: [UNSUPPORTED.md](UNSUPPORTED.md#names).
 
-Not built: a `REQUEST-CURRENT-FAULTS` with each state the machine sends, as
-the MyDyson app asks.
+Not built: a `REQUEST-CURRENT-FAULTS` after each state the machine sends.
 
 - Polling is the caller's: `getFaults()` asks when called.
 
@@ -459,12 +485,14 @@ Rejected: asking for the user status and ignoring what it answers.
   `accountStatus` is `UNREGISTERED`. The package rejects with status 401 and
   that status in the message, and sends nothing more.
 
+An account whose `authenticationMethod` is `EMAIL_PASSWORD` logs in with
+its password alone, by `/v3/userregistration/authenticate`, so
+`requestLoginCode` resolves with `null` for it and asks for no code.
+
 Rejected: asking for a code for every `ACTIVE` account.
 
-- The MyDyson app asks for a code only for an `authenticationMethod` of
-  `EMAIL_PASSWORD_2FA`; release 6.4.26381 knows no `EMAIL_PWD_2FA`. An
-  account whose `authenticationMethod` is `EMAIL_PASSWORD` logs in without
-  one, and the app asks for none for it.
+- The cloud emails a code for an `EMAIL_PASSWORD_2FA` or an `EMAIL_PWD_2FA`
+  alone, and an `EMAIL_PASSWORD` account has none to enter.
 
 ## Headers
 
@@ -473,13 +501,13 @@ The package sends one header of its own on every request to the cloud, a
 answers HTTP 403, with an HTML page in place of JSON, to a request that has
 no `User-Agent` or an empty one, and takes any other value.
 
-Rejected: `X-Platform: android`, `X-App-Version` with the version of an app
-release, and that release's `User-Agent`.
+Rejected: `X-Platform: android`, `X-App-Version` with the version of a
+release of an app, and an HTTP library's `User-Agent`.
 
 - The cloud answers all four requests the same without the first two, and
   with any `User-Agent`.
 - A version written into the package says nothing true of the package, and
-  goes stale with every release of the app.
+  goes stale with each release.
 
 ## No simulator
 

@@ -89,6 +89,7 @@ describe("EnvironmentalCareClient", () => {
       fanAirDirections: [],
       oscillation: "advanced",
       oscillationAngles: { lowerInDegrees: 5, upperInDegrees: 355 },
+      hasTemperatureSensor: false,
     });
     expect(mock.broker.published).toEqual([]);
   });
@@ -330,6 +331,44 @@ describe("EnvironmentalCareClient", () => {
         {
           message: {
             data: { oson: "ON", osal: "0175", osau: "0355", ancp: "CUST" },
+          },
+        },
+      ]);
+    });
+
+    it("rejects a target temperature outside the range the machine takes", async () => {
+      const heater = await connected({ ...MACHINE, type: "635" });
+
+      await expect(
+        heater.setState({ targetTemperatureInC: 5 }),
+      ).rejects.toThrow("The machine takes no targetTemperatureInC");
+      await heater.setState({ targetTemperatureInC: 11 });
+
+      expect(mock.broker.published).toMatchObject([
+        { message: { data: { fpwr: "ON", hmod: "HEAT", hmax: "2842" } } },
+      ]);
+    });
+
+    it("rejects an oscillation mode of on alone for an advanced oscillation, and takes it with the angles", async () => {
+      const purifier = await connected({
+        ...MACHINE,
+        firmwareCapabilities: ["AdvanceOscillationDay1"],
+      });
+
+      for (const oscillationMode of ["on", "idleOn"] as const) {
+        await expect(purifier.setState({ oscillationMode })).rejects.toThrow(
+          "The machine takes an oscillationMode of on or idleOn only with oscillationAngles or an oscillationPresetAngleInDegrees",
+        );
+      }
+      await purifier.setState({
+        oscillationMode: "idleOn",
+        oscillationAngles: { lowerInDegrees: 90, upperInDegrees: 180 },
+      });
+
+      expect(mock.broker.published).toMatchObject([
+        {
+          message: {
+            data: { oson: "OION", osal: "0090", osau: "0180", ancp: "CUST" },
           },
         },
       ]);

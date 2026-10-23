@@ -34,14 +34,17 @@ import {
   requestLoginCode,
 } from "dyson-control";
 
-// 1. Log in once. Dyson emails a code to the account's address.
+// 1. Log in once. Dyson emails a code to most accounts' address.
 const challengeId = await requestLoginCode({ email });
-const account = await login({
-  email,
-  password,
-  challengeId,
-  otpCode: "<the code from the email>",
-});
+const account =
+  challengeId === null
+    ? await login({ email, password }) // an account that logs in without a code
+    : await login({
+        email,
+        password,
+        challengeId,
+        otpCode: "<the code from the email>",
+      });
 saveToConfig(account); // it holds a token and no password
 
 // 2. On every later run, load the account and list its machines.
@@ -70,8 +73,8 @@ await client.disconnect();
 | Call | Does |
 | --- | --- |
 | `getCountries()` | Resolves with the countries the cloud registers accounts in, such as `["GB", "US"]`, and takes no account |
-| `requestLoginCode({ email, country, culture })` | Asks the cloud for the account's status, has it email a code, and resolves with a `challengeId`. Rejects with status 401 for an address the cloud emails no code for |
-| `login({ email, password, challengeId, otpCode, country, culture })` | Resolves with a `DysonAccount`: `accountId`, `token`, `tokenType`, `country` and `culture` |
+| `requestLoginCode({ email, country, culture })` | Asks the cloud for the account's status, has it email a code, and resolves with a `challengeId`, or with `null` for an account that logs in with its password alone. Rejects with status 401 for an address the cloud logs no account in for |
+| `login({ email, password, challengeId, otpCode, country, culture })` | Resolves with a `DysonAccount`: `accountId`, `token`, `tokenType`, `country` and `culture`. Pass `challengeId` and `otpCode` from the emailed code, or neither for an account `requestLoginCode` resolved with `null` for |
 | `getMachines(account)` | Resolves with one `DysonMachine` for each machine of the account that the cloud broker reaches, of every category |
 
 Pass `country: "CN"` to both login calls for an account in mainland China:
@@ -81,7 +84,7 @@ capital letters, such as `GB`: one of those `getCountries()` resolves with.
 `culture` is a language and a country, such as `en-GB`, and defaults to
 `en-US`.
 
-Store the account and reuse it: every login takes a new emailed code.
+Store the account and reuse it: every login with a code takes a new one.
 When the cloud stops accepting the token, calls reject with a `DysonError`
 whose `httpStatusCode` is 401: log in again.
 
@@ -96,6 +99,9 @@ other categories yet.
 | --- | --- |
 | `environmentalCare` | A purifier, fan, heater or humidifier |
 | `robot`, `lighting`, `wearableEnvironmentalCare`, `hairCare`, `floorCare`, `formulation`, `oralCare` | Listed when the broker reaches it, and not controlled |
+
+A machine of a category whose name is [not known](UNSUPPORTED.md#names), such
+as the cloud's code `kc`, is listed without a `category`.
 
 Key a stored machine on `serialNumber`, and store every field `getMachines`
 gave it. Write the machine by hand when you already know it, and skip
@@ -179,10 +185,11 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | --- | --- |
 | `autoMode`, `continuousMonitoring`, `autoHumidification` | `true` when the machine takes the field of that name |
 | `heatModes` | `off` and `heat` for a machine that also takes `targetTemperatureInC`, or an empty list |
+| `targetTemperatureRange` | The lowest and highest `targetTemperatureInC` a heater takes: `{ minInC: 0, maxInC: 37 }`, or 11 to 32 on a `635` or `918`; or `null` |
 | `fanAirDirections` | `forward` and `backward`, or an empty list |
 | `humidificationModes` | `off` and `humidify` for a machine that also takes `manualHumidificationTargetInPercent`, or an empty list |
 | `oscillation` | `basic`, on and off; `advanced`, between two angles as well; `barrel`, to a preset angle or a breeze; `tilt`, on the machine's axis; or `none` |
-| `oscillationModes` | `off` and `on` for a `basic` oscillation, with `idleOff` and `idleOn` for an `advanced` or a `barrel` one; or an empty list |
+| `oscillationModes` | `off` and `on` for a `basic` oscillation, with `idleOff` and `idleOn` for an `advanced` or a `barrel` one, whose `on` and `idleOn` go only with `oscillationAngles` or an `oscillationPresetAngleInDegrees`; or an empty list |
 | `oscillationAngles` | The widest `{ lowerInDegrees, upperInDegrees }` the machine takes, `5` to `355` or `145` to `215` on a `635` or `739`; or `null` when it takes no angles |
 | `oscillationAngleWidthsInDegrees` | How far apart the two `oscillationAngles` may be: `0`, `45`, `90`, `180` and `350`, or `0` alone on a `635` or `739`. `0` points the machine one way without oscillating |
 | `oscillationPresetAnglesInDegrees` | The preset angles an `advanced` machine without `oscillationAngles` takes, such as `45` and `90`, and a `barrel` machine's `45`, `90` and `breeze`; or an empty list |
@@ -198,6 +205,7 @@ only where it says the machine takes it: `setState()` rejects the rest.
 | `uvMode` | `true` for an `831` of model `BP10-BA`, a `917` or `918` of model `EAST`, a `994` of model `MP01-BA`, and every `997` |
 | `ionisationMode` | `true` for the machines `uvMode` is, but a `997` of a model other than `EAST` |
 | `hasAirQualitySensor` | `true` when the machine reports pollutant readings |
+| `hasTemperatureSensor` | `true` when the machine reports `temperatureInC`: a `438` of variant `M` does not |
 | `filters` | `filter` for the first generation, `innerFilter` and `outerFilter` for a later machine that reports its filters' life, or an empty list: what [`resetFilterLife()`](#filters-and-faults) takes |
 
 ### State
@@ -247,6 +255,7 @@ The rest of the state are readings, which `setState()` does not take:
 | `innerFilterLifeInPercent`, `outerFilterLifeInPercent` | The life left in a later machine's inner and outer filter |
 | `innerFilterType` | `carbon`, `sco`, `scog`, `scoh`, `car1` or `none` |
 | `outerFilterType` | `hepa`, `hepaPtfe`, `gcom`, `pcom`, `gcok`, `pcok`, `ehep`, `hsco`, `estf`, `esco`, `ecar`, `escc` or `none` |
+| `securedFilterType` | `sco` or `none` |
 | `heatState`, `humidificationState` | What the heater or the humidifier is doing now, in the values of `heatMode` and `humidificationMode` |
 | `wickDryingState` | `idle` or `wickDrying` |
 | `wickDryingTimeRemainingInMinutes` | A number |
@@ -260,13 +269,15 @@ A field that holds a named mode, such as `heatMode`, is that mode and not
 | Field | Holds |
 | --- | --- |
 | `temperatureInC`, `humidityInPercent` | The room's temperature and humidity |
+| `dustIndex` | The dust a machine of the first generation reports, from 0 to 9, in place of PM2.5 and PM10 |
 | `pm25InUgPerM3`, `pm10InUgPerM3` | Particulates, in μg/m³ |
 | `formaldehydeInUgPerM3` | Formaldehyde, in μg/m³ |
 | `carbonDioxideInPpm` | Carbon dioxide, in parts per million |
 | `pm25Index`, `pm10Index`, `volatileOrganicCompoundsIndex`, `nitrogenDioxideIndex`, `formaldehydeIndex`, `carbonDioxideIndex` | The machine's own index for each pollutant, which has no unit |
 | `sleepTimerInMinutes` | The sleep timer of a machine of the first generation, as `EnvironmentalCareState` holds a later one's |
 
-An index says how clean the air is, on one scale for every pollutant:
+An index says how clean the air is, on one scale for every pollutant of a
+later machine:
 
 | Index | Air quality |
 | --- | --- |
@@ -278,7 +289,9 @@ An index says how clean the air is, on one scale for every pollutant:
 | 13 to 15 | Severe |
 
 A machine reports a concentration and an index apart: a `pm25Index` of 2.7
-beside 25 μg/m³.
+beside 25 μg/m³. A machine of the first generation reports a `dustIndex` and
+a `volatileOrganicCompoundsIndex` alone, each a whole number from 0 to 9:
+how they map to the bands is [not known](UNSUPPORTED.md#values).
 
 ### Changing state
 
@@ -294,8 +307,9 @@ await client.setState({ sleepTimerInMinutes: 30 });
 | It | So |
 | --- | --- |
 | Rejects with an `Error`, and sends nothing, for a field or a value [`client.capabilities`](#capabilities) says the machine does not take | Write the machine's own fields to send it anyway |
+| Rejects an `oscillationMode` of `on` or `idleOn` alone for an `advanced` or a `barrel` oscillation | Pass `oscillationAngles` or `oscillationPresetAngleInDegrees` with it: the machine is written `oson` only beside them |
 | Resolves once the broker has the command, not once the machine has acted | Call `getState()` to read what the machine did |
-| Switches a later machine on with every field but `continuousMonitoring`, `waterHardness`, `temperatureUnit`, `wickDryingMode` and `wickDryingSpeed`, an `oscillationMode` of `off` or `idleOff` to an `advanced` or a `barrel` oscillation, and a `findAndFollowMode` of `off` | Pass `fanPower: false` with it to leave the machine off |
+| Switches a later machine on with every field but `continuousMonitoring`, `waterHardness`, `temperatureUnit`, `wickDryingMode` and `wickDryingSpeed`, a `sleepTimerInMinutes` of `off`, an `oscillationMode` of `off` or `idleOff` to an `advanced` or a `barrel` oscillation, and a `findAndFollowMode` of `off` | Pass `fanPower: false` with it to leave the machine off |
 | Switches a machine of the first generation on with an `autoMode` or a `fanSpeed` alone | Pass `fanPower: true` with another field to switch it on |
 | Switches auto mode off with a `fanSpeed` | Pass `autoMode: true` with it to keep auto mode |
 | Sets `heatMode` to `heat` with a `targetTemperatureInC` | Pass `heatMode` with it to send another |
@@ -328,7 +342,8 @@ machine has, in `productErrors`, `productWarnings`, `moduleErrors` and
 `moduleWarnings`, each by Dyson's name for it, such as `filterReplacement`,
 `tankEmpty` or `cleanCycleOverdue`. A fault whose name is
 [not known](UNSUPPORTED.md#names) keeps the machine's code, such as `iuh0`.
-The `module` groups are the machine's Wi-Fi module.
+What part of the machine the `module` groups report on is
+[not known](UNSUPPORTED.md#names) either.
 
 ### State as the machine reports it
 
@@ -376,7 +391,7 @@ A call that fails rejects with a `DysonError`; branch on `httpStatusCode`:
 
 | `httpStatusCode` | Meaning |
 | --- | --- |
-| 401 | The cloud emails no login code for the address, rejected the login or the account's token, or the broker rejected the credentials the cloud issued, the machine's `apPasswordHash` or the subscription to the machine's topic |
+| 401 | The cloud logs in no account at the address, rejected the login or the account's token, or the broker rejected the credentials the cloud issued, the machine's `apPasswordHash` or the subscription to the machine's topic |
 | 501 | The machine is on the RabbitMQ broker, which no client connects to through the cloud: see [UNSUPPORTED.md](UNSUPPORTED.md#the-cloud) |
 | 502 | The cloud answered with a reply that does not parse, or the machine with a message that lacks its fields |
 | 503 | The cloud or the broker refused or dropped the connection, or the `host` does not resolve (a `DysonConnectionError`); the socket that searches the LAN failed; or the client is not connected: `connect()` has not resolved, or `disconnect()` or `onDisconnect` came since |
