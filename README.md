@@ -290,8 +290,8 @@ later machine:
 
 A machine reports a concentration and an index apart: a `pm25Index` of 2.7
 beside 25 μg/m³. A machine of the first generation reports a `dustIndex` and
-a `volatileOrganicCompoundsIndex` alone, each a whole number from 0 to 9:
-how they map to the bands is [not known](UNSUPPORTED.md#values).
+a `volatileOrganicCompoundsIndex` alone, each a whole number from 0 to 9 on
+the same scale: it tells no band apart above very poor.
 
 ### Changing state
 
