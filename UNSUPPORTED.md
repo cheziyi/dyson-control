@@ -34,7 +34,6 @@ package cannot do, or cannot name or read with certainty, until it is known.
 | --- | --- |
 | What a machine means by an `oson` of `SCAN`, which it reports while find and follow scans and takes back only beside its angles | `oscillationMode` reads it as `scan`, and `setState` rejects it |
 | What a machine with an `advanced` or a `barrel` oscillation does with an `oson` of `ON` or `OION` alone, which it is written only beside its angles or its preset | `setState` rejects an `oscillationMode` of `on` or `idleOn` without `oscillationAngles` or an `oscillationPresetAngleInDegrees` |
-| How the `pact` and `vact` of a machine of the first generation, each a whole number from 0 to 9, map to the air quality bands of a later machine's index | `dustIndex` and `volatileOrganicCompoundsIndex` hold them as reported |
 | What a machine means by an `oscs` of `INIT`, `SCAN`, `ACS`, `ACM` or `NOD`, or a `sost` of `INIT`, and how an `ACS` differs from an `ACM` | `oscillationState` and `findAndFollowState` read each by Dyson's name for it |
 | What a machine means by an `ancp` of `SMRT`, which it is never written | `oscillationPresetAngleInDegrees` reads it as `null` |
 | Whether a machine of the first generation that is off switches on when it is written a field without `fmod` | `setState` and `resetFilterLife` send no `fmod` but with a `fanPower`, an `autoMode` or a `fanSpeed` |

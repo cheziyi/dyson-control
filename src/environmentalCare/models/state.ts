@@ -273,8 +273,8 @@ export type EnvironmentalCareControl = {
  * for every pollutant of a later machine: under 4 is good, under 7 fair,
  * under 9 poor, under 11 very poor, under 13 extremely poor, and severe from
  * there to 15. A machine of the first generation reports a `dustIndex` and
- * a `volatileOrganicCompoundsIndex` alone, each a whole number from 0 to 9:
- * see UNSUPPORTED.md. */
+ * a `volatileOrganicCompoundsIndex` alone, each a whole number from 0 to 9
+ * on the same scale: it tells no band apart above very poor. */
 export interface EnvironmentalCareSensors {
   temperatureInC: number | null;
   humidityInPercent: number | null;
